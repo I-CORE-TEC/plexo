@@ -1,5 +1,5 @@
 # Derechos operativos: plan de implementación
-Objetivo: dar a Derechos una función real dentro del circuito del financiador, sin duplicar operaciones existentes ni inventar política asistencial. Estado: primer corte cerrado técnicamente y publicado en ramas; sin merge, deploy ni aceptación humana.
+Objetivo: dar a Derechos una función real dentro del circuito del financiador, sin duplicar operaciones existentes ni inventar política asistencial. Estado: primer corte cerrado/publicado; continuación manual por persona planificada por Astra, desarrollo delegado.
 Rama integradora: `juanikitro/DERECHOS`; base: `65ef9c8ad8b93b7b959033d1d722b63350444537`. Estrategia: `feature-branch-chain`; push autorizado y verificado en L23. Runners: Django aislado, PostgreSQL dedicado para concurrencia y Playwright contra entorno ficticio propio.
 
 ## Specs
@@ -12,6 +12,8 @@ Rama integradora: `juanikitro/DERECHOS`; base: `65ef9c8ad8b93b7b959033d1d722b633
 - S6 — «Puede existir la posibilidad de modificar mucho el modulo, ya que actualmente parece bastante inutil. El objetivo del nuevo agente es que encuentre un lugar real al modulo de derechos en el flujo real del financiador en el sistema, me lo explique y me lo grafique». Una modificación grande es una posibilidad, no una obligación ni autorización para inventar políticas.
 - S7 — «confirmo el primer corte despues delegando la unidad completa». Confirma la propuesta inmediatamente anterior: «novedad revisada → cambio explícito de cobertura → historial enlazado», conservando permisos y compromisos anteriores, sin automatizar gracia, mora ni otras reglas indefinidas. Unidad completa: código, pruebas y documentación; verificación independiente posterior.
 - S8 — «commitea y pusha el primer corte, documentandolo y cerrandolo para poder seguir con el proximo». Publicar los commits y referencias de la cadena en el `origin` existente de `Mkdir-arg/SistemaDeSalud`, documentar cierre técnico y continuidad. No implica merge, deploy, PR ni cierre de issues de alcance mayor.
+- S9 — «desplega otra sesion para planificar lo faltante para la unidad completa con astra y delega el desarrollo. cuando este todo, dejame todo preparado para probarlo manualmente». Abrir una sesión Astra para identificar faltantes reales, delegar implementación y preparar prueba manual aislada. Preservar el primer corte; no inventar políticas ni confundir automatización con aceptación humana.
+  - Alcance implementable de L26: navegación persona/evidencia/historial persistente en URL; entrada Derechos por persona reutilizando decisiones actuales; borradores secundarios y URL anterior compatible; escenarios sintéticos independientes para prueba manual. Actor operador y auditor, escritorio/móvil/teclado. No incluye automatizar T5.
 
 ## Tasks
 
@@ -22,6 +24,11 @@ Rama integradora: `juanikitro/DERECHOS`; base: `65ef9c8ad8b93b7b959033d1d722b633
 - T4 | S3-S7 | delegated, verificador independiente por datos/permisos/concurrencia | COMPLETO LOCALMENTE CON LIMITACIONES: B1-B3 cerrados; spot check/build aprobados; revisiones nativas API y UI reconocidas L20/L22 | Suite completa fallida también en base; demo visible no disponible; aceptación humana pendiente, no inferida.
 - T5 | S4-S6 | por resolver tras contrato de la primera regla | FUERA DEL CORTE AUTORIZADO: política operativa acotada, fechas y consumidores; no habilitada por T3 | Sin implementación ni estimación cerrada; no es una continuación automática.
 - T6 | S8 | inline, entrega Git y cierre documental | COMPLETO: push atómico y lectura remota de las cuatro referencias, L23 | Cierre funcional `d74a542`; sin modificación de código ni repetición de revisiones consumidas.
+- T7 | S9,S4-S6 | delegated, sesión Astra solicitada | COMPLETO: handoff `msg_af389c7fddc6`, worker_done succeeded; spot check del padre confirma brecha de navegación | L26; sin source writes.
+- T8a | S3-S6,S9 | delegated, usuario solicita desarrollo delegado, unidad coherente U1 | VERIFICADO FUNCIONALMENTE: U1-B1 corregido y recheck independiente aprobado, L28; pendiente cierre nativo | Risk: item 3 (contrato compartido de navegación e historial); sin aceptación humana.
+- T8b | S3-S6,S9 | delegated, mismo escritor secuencial, U2 depende de U1 | PENDIENTE: entrada operativa Derechos y compatibilidad de borradores | Risk: item 3 (menú/rutas compartidas); sin cambios de permisos servidor.
+- T8c | S9 | delegated, mismo escritor secuencial, U3 depende de U2 | PENDIENTE: escenarios manuales sintéticos y guía local | Sin credenciales ni manifiestos versionados.
+- T9 | S9 | verificación independiente por contrato compartido; preparación manual del padre | PENDIENTE: pruebas y acceso local reproducibles | Sin datos reales, demo 8230 ni Issues-3; lanzamiento persistente sigue bloqueado, no eludirlo.
 
 ## Log
 
@@ -233,55 +240,13 @@ Una pasada de partición propone tres cortes locales coherentes, cada uno con ba
 Las ramas son referencias locales, no PR existentes. La integradora permanece en la base hasta autorización posterior. Cada corte operativo conserva sus pruebas y documentación; no se divide una conducta entre código y pruebas. Se consolidan las notas de aceptación para separar evidencia actual de los fallos iniciales ya corregidos, preservados en este Log. No se eliminan pruebas ni se comprime código para reducir líneas. Commits y assessment se registrarán tras observarlos.
 
 
-### L19 — Cortes locales y consentimiento de revisión pendiente, 12/11/2026
+### L19 — Cortes locales y consentimiento de revisión, 12/11/2026
 
 - Corte 1: `6ae71d27271c31e7eeae83ca5aa3bf3e9ab0be18`, rama `juanikitro/DERECHOS-01-plan`, 231 líneas; assessment `passive`, `review_due=false`. Lectura estructural suficiente.
-- Corte 2: `4b3c52dd8d017192fa246dce34672197757e32ed`, rama actual `juanikitro/DERECHOS-02-api`, 381 líneas; servicio/API/tests/documentación juntos. Assessment `high` por item 4, `review_due=true`. START devolvió consentimiento v3; no revisores iniciados, no aprobación.
-- La integradora sigue en la base y el corte 3 de UI permanece sin commit en este worktree. No se alteró Issues-3, ni se publicó/fusionó nada. La configuración Playwright untracked queda excluida explícitamente del corte 2 porque pertenece al corte 3.
-- Base de revisión del corte 2: `6ae71d27271c31e7eeae83ca5aa3bf3e9ab0be18`; lineage `review-6209c8e0e2b3bedd`; target `sha256:59d7c5536fcebcc125991b3ef3e8f9074f8a2e193a1d3b45886e52d2a7ca83e4`. Ejecutar únicamente la invocación de la elección explícita del usuario, sin reconstruir sus tokens.
-
-Consentimiento conservado para continuidad (datos del proveedor, no nueva autorización):
-
-```json
-{
-  "schema": "gentle-ai.review-integration.consent/v3",
-  "contract": "gentle-ai.review-integration/v2",
-  "operation": "review.start",
-  "action": "consent_required",
-  "agent": "codex",
-  "blocking": true,
-  "target_identity": "sha256:59d7c5536fcebcc125991b3ef3e8f9074f8a2e193a1d3b45886e52d2a7ca83e4",
-  "projection": "workspace",
-  "risk_level": "high",
-  "changed_files": 4,
-  "changed_lines": 381,
-  "headline": "Gentle AI can review this change before you call it done.",
-  "reason": "Review can help detect regressions in these changes.",
-  "value": "Reviewing takes a little longer and makes the result safer.",
-  "risk_evidence": [
-    "the agent that made this change flagged it as high risk",
-    "an executable change in backend/apps/financiadores/novedades.py"
-  ],
-  "choices": [
-    {
-      "answer": "granted",
-      "label": "Review this change",
-      "effect": "Reviews only this change; later medium- or high-risk changes ask again, and delivery needs separate approval.",
-      "invocation": "gentle-ai review start --contract gentle-ai.review-integration/v2 --cwd 'C:\\Users\\Juanito\\orca\\workspaces\\SistemaDeSalud\\DERECHOS' --target sha256:59d7c5536fcebcc125991b3ef3e8f9074f8a2e193a1d3b45886e52d2a7ca83e4 --target-evidence v1:base-diff:workspace:86d9de960863b67e8f050d59b0ae9fe94bff0175:ea23036d10db430f682e358543dd03b3ff838700:sha256:fc561559e2b9448fe406b84be37976632eb180ecdf6929a27ae49532e8615cf7 --projection workspace --agent codex --lineage review-6209c8e0e2b3bedd --base-ref 6ae71d27271c31e7eeae83ca5aa3bf3e9ab0be18 --committed-only --untracked-scope=exclude --expected-untracked-inventory=sha256:dfbf97aa6318d1c7b2efd8cc0bff883b624945558ba617c0ce00cb5705e851ea --escalate-item 4 --escalate-reason 'Nueva composicion de locks e idempotencia entre novedades y padron' --lenses review-risk,review-resilience,review-readability,review-reliability --lenses-reason 'La accion persiste decisiones y audita permisos; compone locks y replay; agrega contrato API y cambia comportamiento observable' --consent granted"
-    },
-    {
-      "answer": "declined",
-      "label": "Skip this time",
-      "effect": "Skips only this change; no review record is created, and future reviews stay enabled.",
-      "invocation": "gentle-ai review start --contract gentle-ai.review-integration/v2 --cwd 'C:\\Users\\Juanito\\orca\\workspaces\\SistemaDeSalud\\DERECHOS' --target sha256:59d7c5536fcebcc125991b3ef3e8f9074f8a2e193a1d3b45886e52d2a7ca83e4 --target-evidence v1:base-diff:workspace:86d9de960863b67e8f050d59b0ae9fe94bff0175:ea23036d10db430f682e358543dd03b3ff838700:sha256:fc561559e2b9448fe406b84be37976632eb180ecdf6929a27ae49532e8615cf7 --projection workspace --agent codex --lineage review-6209c8e0e2b3bedd --base-ref 6ae71d27271c31e7eeae83ca5aa3bf3e9ab0be18 --committed-only --untracked-scope=exclude --expected-untracked-inventory=sha256:dfbf97aa6318d1c7b2efd8cc0bff883b624945558ba617c0ce00cb5705e851ea --escalate-item 4 --escalate-reason 'Nueva composicion de locks e idempotencia entre novedades y padron' --lenses review-risk,review-resilience,review-readability,review-reliability --lenses-reason 'La accion persiste decisiones y audita permisos; compone locks y replay; agrega contrato API y cambia comportamiento observable' --consent declined"
-    }
-  ],
-  "off_path": {
-    "note": "To turn reviews off for good, run 'gentle-ai review mode disable'.",
-    "command": "gentle-ai review mode disable"
-  }
-}
-```
+- Corte 2: `4b3c52dd8d017192fa246dce34672197757e32ed`, rama `juanikitro/DERECHOS-02-api`, 381 líneas; servicio/API/tests/documentación juntos. Assessment `high` por item 4; cuatro lentes pertinentes. La UI/config permanecía fuera de ese corte.
+- Base: `6ae71d27271c31e7eeae83ca5aa3bf3e9ab0be18`; lineage `review-6209c8e0e2b3bedd`; target `sha256:59d7c5536fcebcc125991b3ef3e8f9074f8a2e193a1d3b45886e52d2a7ca83e4`.
+- START inicialmente pidió consentimiento v3, sin iniciar revisores. El usuario lo resolvió y la autoridad se consumió en L20. NO reejecutar esa transacción.
+- El sobre original completo permanece en este archivo a commit `148272171afe2fcf752dbbc37f84517c324422fb` (L19). Se referencia en vez de duplicar invocaciones ya consumidas para mantener recuperable el log y su espejo de 50 KB. La integradora permaneció en base, sin alterar Issues-3 ni publicar en ese momento.
 ### L20 — Revisión API autorizada y reconocida, 12/11/2026
 
 > 1
@@ -302,52 +267,22 @@ los bytes finales de UI: exit 0, sin advertencias. Log fuera del repositorio:
 La autorización de revisión no autoriza push, PR, merge ni deploy.
 
 
-### L21 — Corte UI guardado y consentimiento pendiente, 12/11/2026
+### L21 — Corte UI guardado y consentimiento de revisión, 12/11/2026
 
-Corte 3: `5996eb54fc1f7cff4580fbbdcaebb1720147a4a9`, rama actual `juanikitro/DERECHOS-03-ui`, 270 líneas. Contiene UI, fixture sintética, E2E/config y documentación; depende del corte API ya reconocido. La integradora `juanikitro/DERECHOS` no cambió. Assessment `high` por item 3 (historial compartido/contrato visible). No se añadieron verificadores de requisitos: la verificación independiente del conjunto y el recheck B1-B3 siguen vigentes.
+Corte 3: `5996eb54fc1f7cff4580fbbdcaebb1720147a4a9`, rama
+`juanikitro/DERECHOS-03-ui`, 270 líneas. UI, fixture sintética, E2E/config y
+documentación; depende del corte API reconocido. La integradora no cambió.
+Assessment `high` por item 3 (historial compartido/contrato visible);
+verificación independiente y recheck B1–B3 ya realizados.
 
-La revisión UI es otro candidato y requiere consentimiento separado. START sólo devolvió el siguiente sobre v3; no inició revisores ni acredita aprobación. Mantener base `4b3c52dd8d017192fa246dce34672197757e32ed`, target y lineage exactos. Ejecutar sólo la invocación que seleccione el usuario.
-
-```json
-{
-  "schema": "gentle-ai.review-integration.consent/v3",
-  "contract": "gentle-ai.review-integration/v2",
-  "operation": "review.start",
-  "action": "consent_required",
-  "agent": "codex",
-  "blocking": true,
-  "target_identity": "sha256:fff31e59e89452ea0770dcedd87b8e55d96f45f1b9ea28f4a481be9b13f25945",
-  "projection": "workspace",
-  "risk_level": "high",
-  "changed_files": 7,
-  "changed_lines": 270,
-  "headline": "Gentle AI can review this change before you call it done.",
-  "reason": "Review can help detect regressions in these changes.",
-  "value": "Reviewing takes a little longer and makes the result safer.",
-  "risk_evidence": [
-    "the agent that made this change flagged it as high risk",
-    "an executable change in frontend/e2e/fixtures/preparar_novedades_real.py"
-  ],
-  "choices": [
-    {
-      "answer": "granted",
-      "label": "Review this change",
-      "effect": "Reviews only this change; later medium- or high-risk changes ask again, and delivery needs separate approval.",
-      "invocation": "gentle-ai review start --contract gentle-ai.review-integration/v2 --cwd 'C:\\Users\\Juanito\\orca\\workspaces\\SistemaDeSalud\\DERECHOS' --target sha256:fff31e59e89452ea0770dcedd87b8e55d96f45f1b9ea28f4a481be9b13f25945 --target-evidence v1:base-diff:workspace:ea23036d10db430f682e358543dd03b3ff838700:4b105a1f7868b6e358fa250a85364252c9ddc004:sha256:acff71d3003cdbe5b14c15882cde33b4f627f9bfb5ad8fc37bda6e56d86eefea --projection workspace --agent codex --lineage review-3c2407ffcbbc9949 --base-ref 4b3c52dd8d017192fa246dce34672197757e32ed --committed-only --escalate-item 3 --escalate-reason 'Contrato visible y componente compartido de historial, incluida compatibilidad con snapshots anteriores' --lenses review-resilience,review-readability,review-reliability --lenses-reason 'La interfaz agrega una accion asincrona y presenta resultados, errores e historial compartido; las pruebas y documentos explican su comportamiento' --consent granted"
-    },
-    {
-      "answer": "declined",
-      "label": "Skip this time",
-      "effect": "Skips only this change; no review record is created, and future reviews stay enabled.",
-      "invocation": "gentle-ai review start --contract gentle-ai.review-integration/v2 --cwd 'C:\\Users\\Juanito\\orca\\workspaces\\SistemaDeSalud\\DERECHOS' --target sha256:fff31e59e89452ea0770dcedd87b8e55d96f45f1b9ea28f4a481be9b13f25945 --target-evidence v1:base-diff:workspace:ea23036d10db430f682e358543dd03b3ff838700:4b105a1f7868b6e358fa250a85364252c9ddc004:sha256:acff71d3003cdbe5b14c15882cde33b4f627f9bfb5ad8fc37bda6e56d86eefea --projection workspace --agent codex --lineage review-3c2407ffcbbc9949 --base-ref 4b3c52dd8d017192fa246dce34672197757e32ed --committed-only --escalate-item 3 --escalate-reason 'Contrato visible y componente compartido de historial, incluida compatibilidad con snapshots anteriores' --lenses review-resilience,review-readability,review-reliability --lenses-reason 'La interfaz agrega una accion asincrona y presenta resultados, errores e historial compartido; las pruebas y documentos explican su comportamiento' --consent declined"
-    }
-  ],
-  "off_path": {
-    "note": "To turn reviews off for good, run 'gentle-ai review mode disable'.",
-    "command": "gentle-ai review mode disable"
-  }
-}
-```
+Base `4b3c52dd8d017192fa246dce34672197757e32ed`;
+lineage `review-3c2407ffcbbc9949`;
+target `sha256:fff31e59e89452ea0770dcedd87b8e55d96f45f1b9ea28f4a481be9b13f25945`.
+START pidió consentimiento v3 para este candidato separado, sin iniciar
+revisores. El usuario lo resolvió y la autoridad se consumió en L22.
+NO reejecutar esa transacción. El sobre original completo permanece en este
+archivo a commit `148272171afe2fcf752dbbc37f84517c324422fb` (L21); se referencia
+para no duplicar comandos consumidos. Lentes: resilience, readability, reliability.
 ### L22 — Cierre de revisión UI y estado local, 12/11/2026
 
 > 1
@@ -402,3 +337,137 @@ Antes de T5, concretar una regla de negocio con actor, evidencia, efecto y fecha
 sin inferir gracia, mora ni derechos familiares. Reconciliar el trabajo paralelo de
 Novedades antes de integrar. Siguen documentadas las cuatro fallas preexistentes,
 la aceptación visual pendiente y la limpieza bloqueada; no equivalen a bugs nuevos.
+### L24 — Continuación completa y prueba manual solicitadas, 12/11/2026
+
+> desplega otra sesion para planificar lo faltante para la unidad completa con astra y delega el desarrollo. cuando este todo, dejame todo preparado para probarlo manualmente
+
+La continuación parte de `148272171afe2fcf752dbbc37f84517c324422fb`, rama nueva
+`juanikitro/DERECHOS-04-continuacion` en el mismo worktree aislado. No altera el
+cierre del primer corte ni extiende su autorización de push a futuros cambios.
+Se usa una sesión Orca Astra, esfuerzo `xhigh`, de planificación supervisada;
+el padre conserva las decisiones de producto, el tracking y la delegación de
+escritores. Se conserva `gpt-6-luna`/`high` para desarrollo por elección previa.
+La sesión planificadora no escribe código ni lanza pruebas/servicios: debe volver
+con alcance mínimo, evidencia, superficies concretas y preparación manual viable.
+Las reglas temporales o clínicas que no estén definidas no se presuponen aprobadas.
+
+### L25 — Sesión Astra iniciada, 12/11/2026
+
+Orca confirmó `state=ready`, modelo `gpt-6-astra`, esfuerzo `xhigh`, modo
+`structured`, sesión mantenida abierta, en el worktree DERECHOS. Run:
+`run_ad118d643d27`; Task: `task_be3aaefdc331`; Dispatch: `ctx_e8ae5bd4c628`;
+handle: `structworker_a396b6ac-9ddb-4924-8048-83268d44921f`.
+El prompt entregado delimita planificación sólo lectura, skills exactas,
+CodeGraph primero, evidencia de GitHub autorizada, superficies futuras y criterios
+para prueba manual. Orca notificará su resultado al coordinador; no hacer polling
+ni enviar comandos por el terminal del worker. Todavía no se lanzó desarrollo de
+la continuación. Ante una duda de producto, devolverla al padre; no asumir políticas.
+
+### L26 — Plan Astra recibido y continuación delimitada, 12/11/2026
+
+Handoff `msg_af389c7fddc6`, tarea `task_be3aaefdc331` completada sin mutaciones.
+El padre contrastó NovedadesFinanciador e HistorialPadron mediante CodeGraph:
+existen la decisión explícita y referencias, falta el recorrido navegable por persona.
+No se reconstruyen la edición manual, Finalizar/Reactivar ni los servicios existentes.
+
+La unidad útil es MANUAL y centrada en persona: seleccionar afiliado, consultar
+situación/plan, revisar sus novedades, decidir explícitamente y volver a ficha e
+historial. Habilitación no garantiza prestación: siguen vigencias, convenio, reglas,
+cupos y autorización. Borradores conserva API/datos/simulación y URL anterior,
+pero su acceso pasa a secundario y queda expresamente no operativo.
+
+U1/T8a: URL conserva afiliado, novedad seleccionada, estado y página; recarga/atrás,
+IDs ausentes/ajenos y cambio de organización seguros. Enlaces ficha→novedades,
+historial→evidencia exacta y decisión→ficha/historial. Mutación invalida las dos
+familias de consultas del financiador, sin ejecutar POST desde navegación.
+U2/T8b: composición fina del padrón, derechoAfiliacionPadron y Novedades existentes;
+una sola implementación del formulario. Borradores oculto del menú principal pero
+reconocido como ruta autorizada; roles y enlaces previos intactos.
+U3/T8c: escenarios independientes listos para decidir/aplicado/sin cambio/conflicto/
+futuro/finalizado/booleano histórico desconocido, sin reutilizar datos mutados por E2E.
+
+Fuente actual contrastada por Astra: issues #141/#143 y comentarios OSTEL del 11/11:
+https://github.com/Mkdir-arg/SistemaDeSalud/issues/216#issuecomment-6798708046
+https://github.com/Mkdir-arg/SistemaDeSalud/issues/219#issuecomment-6798709273
+Aportan aclaraciones parciales, no autorizan corte asistencial automático. T5 y el
+alcance normativo de esos issues siguen pendientes; no se declaran terminados.
+
+Ejecución: un escritor Luna high, unidades secuenciales código+pruebas+documentación,
+sin escritores paralelos en superficies compartidas. Forecast: 650–1000 líneas;
+conservar feature-branch-chain, pruebas junto al comportamiento y un commit por
+unidad coherente. Estimación orientativa, nunca comprimir código para ajustarla.
+Padre conserva Git/tracking, verificación independiente y revisión nativa si aplica.
+Nueva publicación no autorizada. Reutilizar `.atl/` preexistente sin editar ni agregar.
+Runner U1: node --test src/pages/financiadores/menuFinanciador.test.js src/lib/derechosNavigation.test.mjs;
+npm run e2e -- --config playwright.derechos-real.config.js; npm run build.
+RED antes de implementar, GREEN observado, diferencias de rutas previas frente a base
+en TEMP; pruebas reales con manifiesto aislado obligatorio, no contar skips como éxito.
+Conservar los cuatro fallos preexistentes de L17; no repararlos fuera de alcance.
+Prueba manual persistente sigue bloqueada por el lanzamiento previamente denegado:
+preparar datos/guía no equivale a URL disponible ni aceptación humana.
+
+### L27 — Navegación implementada; cierre de prueba de selector, 12/11/2026
+
+U1 vuelve de `/root/rights_vertical_slice` con navegación URL, enlaces de ficha/
+evidencia/historial e invalidación de las dos familias de consultas. Se añadió la
+superficie exacta `frontend/src/components/financiadores/FichaPadronAdministrativa.jsx`
+tras inspección del padre: sólo pasa identidad de organización/persona al historial.
+El escritor la editó antes de pedir ampliación; se pausó, inspeccionó y autorizó
+expresamente ese cambio necesario. No es permiso para ampliar otras superficies.
+
+Pruebas: RED observado, unit final 13/13 y build sin advertencias. Suite real una
+vez: 14 aprobadas/4 fallidas. Dos snapshots corregidos a selección URL directa:
+recheck 2/2. El recorrido restante tenía una expectativa fija de cobertura y un
+selector ambiguo. La corrección del selector siguió fallando; el escritor atribuyó
+sin prueba el fallo a paginación. El padre contrastó la captura conservada:
+`error-context.md` mostraba explícitamente `Ver novedad #256` en la página.
+La causa era `filter({has: panelHistorial...})`: buscaba el panel ancestro dentro
+de la fila. Segundo ajuste permitido del MISMO bloqueador, sólo locator relativo,
+conservando ID/origen exactos; recheck escritorio/móvil 2/2 aprobado. No se repitió
+la suite completa ni se presenta como una ejecución verde. Spot check del padre:
+unit 13/13, sin skips, y diff check aprobados. No cambió backend ni política.
+
+Logs privados en TEMP: `derechos-u1-full-e2e.log`, `derechos-u1-correction-e2e.log`,
+`derechos-u1-focused-final-recheck.log`, `derechos-u1-selector-correction.log`,
+`derechos-u1-final-unit.log`, `derechos-u1-final-build.log`. Manifiesto sintético:
+`derechos-u1-final-manifest.json`, no versionar ni exponer sus credenciales.
+Capturas: `salud-derechos-real-resultados/`. Sin API/Vite/Playwright del escritor
+al finalizar; PG propio permanece. No hubo limpieza ni lanzamiento persistente.
+
+Pendiente: diferencial previo/nuevo, verificador independiente por Risk item 3,
+commit/revisión nativa si aplica, U2/U3 y entorno manual. Assessment inicial no
+pudo evaluar sin inventario untracked explícito; no se bajó el riesgo. Se excluye
+`.atl/` ajeno y se incluyen sólo los dos nuevos archivos derechosNavigation.
+No se inició START ni otra revisión de los candidatos ya consumidos.
+
+### L28 — Verificación independiente U1 y corrección de identidad, 12/11/2026
+
+El verificador repitió unit 13/13 y 12 casos reales de U1, todos aprobados.
+Comparó candidato y baseline `1482721`: ruta sin filtro, filtro por estado,
+listado/evidencia, Escape e historial sin nuevos props; JSON equivalente en ambos
+viewports, hash persistido igual y cero POST de navegación. Sólo normalizó orden
+de query params y estado vacío. Un error del harness `/api/api` falló en ambos;
+se corrigió únicamente el harness antes de observar el diferencial aprobado.
+
+Encontró U1-B1: al pasar de novedad B a A con Atrás, A conservaba la selección
+y motivo de cobertura de B. No hizo POST para demostrarlo. Causa: selección URL
+desacoplada de useState, limpieza sólo por clic. Un lote de corrección del escritor
+liga el borrador a organización/afiliado/novedad, con guard de render; motivos,
+confirmación y selección no quedan accionables bajo otra identidad. Regresión
+persistente Atrás/Adelante: RED 2, GREEN 2; adyacentes 4, unit 13 y build aprobados.
+Recheck independiente ORIGINAL en snapshot nuevo: escritorio/móvil 2/2, elección
+y motivo vacíos, cero POST y hash persistido idéntico. U1-B1 cerrado. Padre repitió
+unit 13/13 y diff check después de la corrección; ningún fallo nuevo.
+
+Scratch retenido: TEMP/derechos-u1-verify-95af3c46b4b14603a60565bf6f3a0def y
+TEMP/derechos-u1-recheck-c3d6944da1bd45288f03e47e8b4adecc. El segundo contiene
+`u1-b1-recheck.log`; el primero conserva probes y diferencial. Credenciales sólo
+en manifiestos privados. No borrar: limpieza previamente bloqueada. Servidores
+8231/5179 terminados; PG propio permanece. No revisión nativa ni demo todavía.
+
+Corte de entrega: documentación/tracking pasivo separado de U1 funcional.
+U1 suma 496 líneas authored (código, regresiones y documentación), con Risk item 3.
+Una pasada de división mantiene este comportamiento unido: separar helpers/pruebas
+de la navegación produciría cortes sin recorrido usable. Se conserva la cadena
+elegida; recomendar `size:exception` para una eventual PR de U1, sin abrirla ni
+publicar ahora. La corrección y sus pruebas no se comprimen para bajar el conteo.
