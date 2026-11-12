@@ -2768,3 +2768,48 @@ lista. Navegar mediante estos enlaces sólo cambia la URL y realiza lecturas; no
 concede autoridad ni ejecuta `POST`. Después de una decisión de cobertura, la UI
 invalida tanto la consulta organizacional como la del financiador, igual que la
 actualización administrativa del padrón.
+
+## Área de Derechos por persona — U2
+
+La navegación principal del financiador ofrece `Derechos` a los mismos miembros
+administradores, operadores y auditores. La pantalla busca personas mediante el
+endpoint existente del padrón, con `estado=todos`; conserva los filtros de
+documento, número o nombre y muestra la afiliación seleccionada en la URL. La
+consulta no amplía permisos. El portal conserva la URL histórica de borradores
+solo para roles de miembro reconocidos, sin incluirla en el menú principal.
+
+La vista reutiliza la ficha de afiliación, `derechoAfiliacionPadron` y el
+componente existente de Novedades. La clasificación, el plan y el booleano de
+cobertura se presentan como datos distintos. Una afiliación vigente o habilitada
+no garantiza tratamiento ni pago: siguen aplicando fechas, plan, convenio,
+reglas del servicio, cupos y autorización. Las reglas de cobertura y el plan
+actual tienen enlaces separados. Abrir evidencia no ejecuta escrituras; toda
+decisión de cobertura continúa en el control explícito de la novedad.
+
+Los borradores conservan su ruta, API, versiones e historial de simulación. Se
+presentan como módulo de configuración no operativa, con retorno a Derechos; no
+se activan ni cambian reglas por esta navegación. El auditor conserva solo su
+comportamiento de lectura previo.
+
+### Verificación de U2
+
+La prueba real focal se ejecutó en Chromium de escritorio y móvil. Confirmó la
+búsqueda `estado=todos`, selección desde la URL, back/forward y recarga, apertura
+sin escritura automática, decisión explícita, ficha e historial persistidos, y
+lectura de evidencia del auditor sin controles de cambio. También comprobó la
+ruta secundaria de borradores para auditor. La suite aislada completa, ejecutada
+antes de la última ampliación de aserciones, aprobó 24 pruebas; después se volvió
+a ejecutar dos lotes focales: 4 pruebas del flujo por persona (back/forward,
+recarga, decisión y auditor) y 4 de clasificación futura/finalizada y acceso sin
+membresía, en escritorio y móvil. Las pruebas unitarias de menú/navegación
+aprobaron 15 casos y `npm run build` finalizó correctamente.
+
+La identidad sintética sin membresía se probó en navegador, escritorio y móvil:
+no obtiene afiliaciones de la organización ni muestra la sección operativa o la
+ruta histórica de borradores. El escenario futuro se agrega sólo en el fixture
+aislado: el alta pública rechaza `desde` posterior a la fecha actual. La
+afiliación finalizada se prepara con el endpoint público de finalización. En
+ambas, la pantalla mostró la clasificación respectiva y `Habilitada` por
+separado, sin escritura de cobertura al navegar.
+
+No se afirma aceptación humana, despliegue ni homologación OSTEL.

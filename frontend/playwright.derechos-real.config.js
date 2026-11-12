@@ -6,7 +6,7 @@ const aislado = process.env.SALUD_DERECHOS_E2E_AISLADO === "1";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "novedades-real.spec.js",
+  testMatch: ["novedades-real.spec.js", "derechos-operativos-real.spec.js"],
   workers: 1,
   fullyParallel: false,
   retries: 0,
