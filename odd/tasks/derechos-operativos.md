@@ -25,7 +25,7 @@ Rama integradora: `juanikitro/DERECHOS`; base: `65ef9c8ad8b93b7b959033d1d722b633
 - T5 | S4-S6 | por resolver tras contrato de la primera regla | FUERA DEL CORTE AUTORIZADO: política operativa acotada, fechas y consumidores; no habilitada por T3 | Sin implementación ni estimación cerrada; no es una continuación automática.
 - T6 | S8 | inline, entrega Git y cierre documental | COMPLETO: push atómico y lectura remota de las cuatro referencias, L23 | Cierre funcional `d74a542`; sin modificación de código ni repetición de revisiones consumidas.
 - T7 | S9,S4-S6 | delegated, sesión Astra solicitada | COMPLETO: handoff `msg_af389c7fddc6`, worker_done succeeded; spot check del padre confirma brecha de navegación | L26; sin source writes.
-- T8a | S3-S6,S9 | delegated, usuario solicita desarrollo delegado, unidad coherente U1 | VERIFICADO FUNCIONALMENTE: U1-B1 corregido y recheck independiente aprobado, L28; pendiente cierre nativo | Risk: item 3 (contrato compartido de navegación e historial); sin aceptación humana.
+- T8a | S3-S6,S9 | delegated, usuario solicita desarrollo delegado, unidad coherente U1 | COMPLETO LOCALMENTE: commit `584e172`, U1-B1 y revisión nativa cerrados L28/L30 | Risk: item 3; sin publicación ni aceptación humana.
 - T8b | S3-S6,S9 | delegated, mismo escritor secuencial, U2 depende de U1 | PENDIENTE: entrada operativa Derechos y compatibilidad de borradores | Risk: item 3 (menú/rutas compartidas); sin cambios de permisos servidor.
 - T8c | S9 | delegated, mismo escritor secuencial, U3 depende de U2 | PENDIENTE: escenarios manuales sintéticos y guía local | Sin credenciales ni manifiestos versionados.
 - T9 | S9 | verificación independiente por contrato compartido; preparación manual del padre | PENDIENTE: pruebas y acceso local reproducibles | Sin datos reales, demo 8230 ni Issues-3; lanzamiento persistente sigue bloqueado, no eludirlo.
@@ -127,31 +127,23 @@ docs/funcionalidades/financiadores-cobertura/ostel-aceptacion.md
 
 No autorizar por defecto modelos/migraciones, permisos, familias, importadores, reglas de cobertura, borradores ni motor financiero. El padre debe revisar cualquier ampliación. `NovedadesFinanciador.jsx` también está siendo modificado en Issues-3: no copiar su trabajo pendiente. Reconciliar la versión publicada antes de integrar ramas.
 
-### L8 — Verificación prevista, todavía no ejecutada
+### L8 — Verificación prevista originalmente; evidencia posterior en L15–L22
 
-Aplicar RED → GREEN → REFACTOR para cada comportamiento acordado mediante interfaces públicas. Observar salida HTTP, cambios persistidos y ausencia de efectos en rechazos. Conservar conciliación sin efectos y las pruebas históricas anteriores.
+Plan histórico completo en este archivo a commit `1482721`, L8. Se conservan
+los runners y límites aplicables: RED→GREEN por interfaz pública, rechazos sin
+cambios persistidos, roles/revisiones/replay, compromisos previos intactos.
 
-Casos mínimos propuestos: operador permitido; auditor/revocado/otra organización rechazados; revisión obsoleta; evidencia/afiliado contradictorios; reintento idéntico y distinto; doble confirmación; rectificación posterior; nueva evaluación tras el cambio; compromiso previo intacto. Ajustar la lista a las decisiones concretas, sin convertirla en un catálogo universal.
-
-Desde `backend`, en entorno aislado preparado exclusivamente para DERECHOS:
-
-```powershell
-$env:DJANGO_DEBUG = "true"
+Desde backend, exclusivamente con datos sintéticos propios:
+```text
 python -B manage.py test apps.financiadores.test_novedades apps.financiadores.test_habilitacion_cobertura apps.financiadores.test_vigencias apps.financiadores.test_derechos_padron_aislamiento --settings=config.settings_financiadores_test --noinput
 python -B manage.py test apps.financiadores --settings=config.settings_financiadores_test --noinput
-```
-
-El settings anterior usa SQLite en memoria: no prueba locks PostgreSQL. Con instancia local descartable propia, nunca compartida con Issues-3, y `SALUD_TEST_POSTGRES_URL` autorizada para esa instancia:
-
-```powershell
 python -B manage.py test apps.financiadores.test_novedades.NovedadesConcurrenciaTests apps.financiadores.test_concurrencia_padron130 --settings=config.settings_financiadores_postgres_test --noinput
 ```
-
-Extender la clase o agregar los casos de concurrencia propios antes de atribuir cobertura a esos comandos. No ejecutar dos procesos sobre la misma base de test.
-
-Para navegador, `frontend/e2e/novedades-real.spec.js` requiere manifest sintético `SALUD_NOVEDADES_MANIFEST` y servidor loopback. Sin manifest se omite: un comando exitoso con skips no acredita el recorrido. Preparar configuración focalizada, backend/frontend y puertos propios; no reutilizar ni detener la demo 8230 de Issues-3. Verificar escritorio, móvil, teclado, errores, recarga e historial con datos ficticios. Mostrar luego la pantalla en navegador visible, sin confundir demostración con aceptación.
-
-Si se cambia código compartido, comparar las entradas existentes afectadas en baseline y candidato, usando scratch externo y datos sintéticos aislados. No consultar Git desde pruebas de regresión comprometidas.
+SQLite no acredita locks; PostgreSQL sólo instancia descartable autorizada, un
+proceso de pruebas a la vez. Playwright requiere manifest sintético
+SALUD_NOVEDADES_MANIFEST; skips no prueban recorrido. Escritorio/móvil/teclado,
+recarga/historial y diferencial de contratos compartidos en TEMP; nunca demo8230,
+datos reales ni Git history dentro de regresiones. Demostración no es aceptación.
 
 ### L9 — Delegación, cortes y riesgo
 
@@ -471,3 +463,35 @@ Una pasada de división mantiene este comportamiento unido: separar helpers/prue
 de la navegación produciría cortes sin recorrido usable. Se conserva la cadena
 elegida; recomendar `size:exception` para una eventual PR de U1, sin abrirla ni
 publicar ahora. La corrección y sus pruebas no se comprimen para bajar el conteo.
+
+### L29 — U1 guardado localmente; elección de revisión pendiente, 12/11/2026
+
+Plan/tracking: `eef13f901c8fb2564958af37b17afecb4de08ab5`, 257 líneas,
+assessment nativo passive. U1: `584e172ede526978bafb023c2022524474d04135`,
+496 líneas/8 archivos, high por Risk item 3. Nada publicado. `.atl/` queda fuera.
+Base de revisión U1: `eef13f9`; lineage `review-1e03e6f1765dd68d`;
+target `sha256:00155fcac2c81f7ddd0a5ba309da96d6a14d1770faeb68b7afbd7fd0a8e25ee3`.
+START exacto devolvió consentimiento v3, sin iniciar revisores. Sobre completo,
+opciones e invocaciones EXACTAS conservadas en Engram #3228,
+topic `reviews/derechos-u1-navigation`; no reconstruir comandos desde esta prosa.
+Elección única pendiente: revisar este cambio (granted) u omitir esta vez (declined).
+No reutilizar consentimiento del primer corte. Tras resolver esta transacción,
+continuar U2/U3 con Luna; no pedir aprobación genérica para desarrollo ya solicitado.
+Cuatro lentes si se concede; no sustituyen pruebas funcionales ni aceptación humana.
+El entorno manual persistente sigue sin estar disponible y T5 sigue fuera de alcance.
+
+### L30 — Revisión U1 concedida y reconocida; continúa U2, 12/11/2026
+
+> 1
+
+Selección única interpretada como granted para L29. Se ejecutó una vez la
+invocación capturada y después el STATUS exacto ligado a su contexto. Los cuatro
+captures se lanzaron concurrentemente en orden risk/resilience/readability/reliability;
+todos sin hallazgos. Inspección estática de patches inmutables, no nuevas pruebas.
+El cierre devolvió acknowledge-approved; su invocación exacta confirmó
+`action=acknowledged`, `authority=burned`, misma lineage/target de L29 y revisión
+consumida `sha256:d5fa86c41af45c867a1c8d5192b6c99fddad2e76c3abe121466b253f069542aa`.
+No hacer STATUS posterior ni reusar esa autoridad. Engram #3228 queda histórico.
+U1 cerrado localmente; continúan U2/T8b y U3/T8c, sin pedir aprobación genérica.
+U2 conserva el único formulario de Novedades, permisos y URL heredada de borradores;
+no automatiza elegibilidad ni convierte metadatos en derechos activos.
