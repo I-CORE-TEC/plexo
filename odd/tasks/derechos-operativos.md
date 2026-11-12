@@ -26,7 +26,7 @@ Rama integradora: `juanikitro/DERECHOS`; base: `65ef9c8ad8b93b7b959033d1d722b633
 - T6 | S8 | inline, entrega Git y cierre documental | COMPLETO: push atómico y lectura remota de las cuatro referencias, L23 | Cierre funcional `d74a542`; sin modificación de código ni repetición de revisiones consumidas.
 - T7 | S9,S4-S6 | delegated, sesión Astra solicitada | COMPLETO: handoff `msg_af389c7fddc6`, worker_done succeeded; spot check del padre confirma brecha de navegación | L26; sin source writes.
 - T8a | S3-S6,S9 | delegated, usuario solicita desarrollo delegado, unidad coherente U1 | COMPLETO LOCALMENTE: commit `584e172`, U1-B1 y revisión nativa cerrados L28/L30 | Risk: item 3; sin publicación ni aceptación humana.
-- T8b | S3-S6,S9 | delegated, mismo escritor secuencial, U2 depende de U1 | PENDIENTE: entrada operativa Derechos y compatibilidad de borradores | Risk: item 3 (menú/rutas compartidas); sin cambios de permisos servidor.
+- T8b | S3-S6,S9 | delegated, mismo escritor secuencial, U2 depende de U1 | COMPLETO LOCALMENTE: commit `8df5686`, verificación y revisión nativa cerradas L32/L34 | Risk: items 2/3; sin publicación ni aceptación humana.
 - T8c | S9 | delegated, mismo escritor secuencial, U3 depende de U2 | PENDIENTE: escenarios manuales sintéticos y guía local | Sin credenciales ni manifiestos versionados.
 - T9 | S9 | verificación independiente por contrato compartido; preparación manual del padre | PENDIENTE: pruebas y acceso local reproducibles | Sin datos reales, demo 8230 ni Issues-3; lanzamiento persistente sigue bloqueado, no eludirlo.
 
@@ -145,21 +145,27 @@ SALUD_NOVEDADES_MANIFEST; skips no prueban recorrido. Escritorio/móvil/teclado,
 recarga/historial y diferencial de contratos compartidos en TEMP; nunca demo8230,
 datos reales ni Git history dentro de regresiones. Demostración no es aceptación.
 
-### L9 — Delegación, cortes y riesgo
+### L9 — Delegación, cortes y riesgo del primer corte
 
-- T1: mapa por GPT-6 Astra, esfuerzo muy alto; desafío independiente por GPT-6.1 Sol, esfuerzo medio. Ambos entregaron y el padre comprobó `padron.editar_ficha`/historial en la base nueva.
-- T3: un escritor delegado con código, tests y documentación de la misma conducta. Backend y UI son dependientes: no repartirlos entre escritores concurrentes para aparentar paralelismo. El padre conserva Git y revisa superficies.
-- T4: un verificador independiente por modificación de datos existentes, controles de acceso y concurrencia; checks propios primero. Un spot check del padre antes de la entrega. La revisión nativa es adicional y solo se inicia según su evaluación y consentimiento aplicables; no se altera el switch.
-- Estimación orientativa de T3+pruebas+documentación: 450–800 líneas autorales, por validar al cerrar el contrato. `ask-on-risk`: elegir estrategia de cadena antes del primer commit si se confirma ese tamaño. La opción recomendada sería integrar cortes coherentes en rama de funcionalidad, no fragmentar artificialmente tests y código. No hay estrategia de publicación elegida todavía.
-- Risk previsto para implementación: items 1, 2, 3 y 4, a acotar al diff real. No hay cambios funcionales en este plan. No se ejecutaron pruebas ni se atribuye aprobación clínica, CI, merge o despliegue.
+Registro completo histórico en `170ab58`, L9. Astra mapeó y Sol impugnó la
+premisa; el padre comprobó padron.editar_ficha/historial. Un escritor por conducta
+con código/tests/docs juntos y padre dueño de Git/superficies; backend/UI no se
+repartieron concurrentemente. Verificador independiente por riesgos de datos,
+acceso/concurrencia, checks propios y spot check; revisión nativa adicional.
+La estimación inicial450–800 líneas y estrategia pendiente fueron sustituidas
+por la cadena elegida en L18 y cortes/verificación/publicación de L19–L23.
+No se dedujo de pruebas aprobación clínica, CI, merge ni despliegue.
 
-### L10 — Puerta de decisión y continuación
+### L10 — Decisión inicial resuelta y localizador del plan
 
-**Necesita decisión:** confirmar si la primera entrega será el enlace explícito novedad → cambio inmediato de habilitación con trazabilidad, o si debe comenzar por una regla asistencial concreta. En el segundo caso, acordar un ejemplo con actor, evidencia, efecto y fecha antes de desarrollar.
+La pregunta inicial entre enlace manual novedad→habilitación o una regla
+asistencial concreta quedó resuelta explícitamente por el usuario en L12.
+La segunda alternativa nunca quedó autorizada: T5 requiere actor, evidencia,
+efecto y fecha validados. No pedir aprobación genérica para pasos técnicos
+autorizados ni activar reglas inventadas. Texto histórico completo en `170ab58`, L10.
 
-Tras la respuesta, registrar su texto literal, actualizar solo los specs/tareas afectados, cerrar el contrato mínimo y despachar al escritor. No pedir una aprobación genérica para cada paso técnico. No activar reglas inventadas, ni crear infraestructura aislada para evitar esta decisión.
-
-Localizador del espejo Engram: `odd/derechos-operativos/tasks`, proyecto `sistemadesalud`. La confirmación de persistencia se verifica con el recibo y su lectura; este localizador solo no la acredita. Este archivo es el plan único; no duplicarlo en otro documento de planificación.
+Único plan: este archivo. Espejo `odd/derechos-operativos/tasks`, proyecto
+`sistemadesalud`; verificar recibo Y lectura, no inferir persistencia del localizador.
 
 ### L11 — Continuidad sin traslado del chat, 12/11/2026
 
@@ -232,13 +238,13 @@ Una pasada de partición propone tres cortes locales coherentes, cada uno con ba
 Las ramas son referencias locales, no PR existentes. La integradora permanece en la base hasta autorización posterior. Cada corte operativo conserva sus pruebas y documentación; no se divide una conducta entre código y pruebas. Se consolidan las notas de aceptación para separar evidencia actual de los fallos iniciales ya corregidos, preservados en este Log. No se eliminan pruebas ni se comprime código para reducir líneas. Commits y assessment se registrarán tras observarlos.
 
 
-### L19 — Cortes locales y consentimiento de revisión, 12/11/2026
+### L19 — Cortes iniciales y consentimiento histórico
 
-- Corte 1: `6ae71d27271c31e7eeae83ca5aa3bf3e9ab0be18`, rama `juanikitro/DERECHOS-01-plan`, 231 líneas; assessment `passive`, `review_due=false`. Lectura estructural suficiente.
-- Corte 2: `4b3c52dd8d017192fa246dce34672197757e32ed`, rama `juanikitro/DERECHOS-02-api`, 381 líneas; servicio/API/tests/documentación juntos. Assessment `high` por item 4; cuatro lentes pertinentes. La UI/config permanecía fuera de ese corte.
-- Base: `6ae71d27271c31e7eeae83ca5aa3bf3e9ab0be18`; lineage `review-6209c8e0e2b3bedd`; target `sha256:59d7c5536fcebcc125991b3ef3e8f9074f8a2e193a1d3b45886e52d2a7ca83e4`.
-- START inicialmente pidió consentimiento v3, sin iniciar revisores. El usuario lo resolvió y la autoridad se consumió en L20. NO reejecutar esa transacción.
-- El sobre original completo permanece en este archivo a commit `148272171afe2fcf752dbbc37f84517c324422fb` (L19). Se referencia en vez de duplicar invocaciones ya consumidas para mantener recuperable el log y su espejo de 50 KB. La integradora permaneció en base, sin alterar Issues-3 ni publicar en ese momento.
+Plan `6ae71d2`:231 líneas/passive. API `4b3c52d`:381 líneas/high por item4,
+cuatro lentes, base6ae71d2. UI/config quedaron fuera del corte API. Lineage
+`review-6209c8e0e2b3bedd`, resuelta y consumida en L20; nunca reejecutar.
+Target/sobre completos en este archivo a `1482721`, L19; integradora en base,
+Issues-3 intacto. Se archiva la ceremonia cerrada, no las decisiones vigentes.
 ### L20 — Revisión API autorizada y reconocida, 12/11/2026
 
 > 1
@@ -259,22 +265,13 @@ los bytes finales de UI: exit 0, sin advertencias. Log fuera del repositorio:
 La autorización de revisión no autoriza push, PR, merge ni deploy.
 
 
-### L21 — Corte UI guardado y consentimiento de revisión, 12/11/2026
+### L21 — Corte UI inicial y consentimiento histórico
 
-Corte 3: `5996eb54fc1f7cff4580fbbdcaebb1720147a4a9`, rama
-`juanikitro/DERECHOS-03-ui`, 270 líneas. UI, fixture sintética, E2E/config y
-documentación; depende del corte API reconocido. La integradora no cambió.
-Assessment `high` por item 3 (historial compartido/contrato visible);
-verificación independiente y recheck B1–B3 ya realizados.
-
-Base `4b3c52dd8d017192fa246dce34672197757e32ed`;
-lineage `review-3c2407ffcbbc9949`;
-target `sha256:fff31e59e89452ea0770dcedd87b8e55d96f45f1b9ea28f4a481be9b13f25945`.
-START pidió consentimiento v3 para este candidato separado, sin iniciar
-revisores. El usuario lo resolvió y la autoridad se consumió en L22.
-NO reejecutar esa transacción. El sobre original completo permanece en este
-archivo a commit `148272171afe2fcf752dbbc37f84517c324422fb` (L21); se referencia
-para no duplicar comandos consumidos. Lentes: resilience, readability, reliability.
+UI `5996eb5`:270 líneas, base4b3c52d, high por item3. Incluye fixture/E2E/docs;
+verificación y recheck B1–B3 anteriores. Lineage `review-3c2407ffcbbc9949`,
+resuelta y consumida en L22; nunca reejecutar. Lentes resilience/readability/
+reliability. Target y sobre exactos en este archivo a `1482721`, L21.
+Integración y publicación posteriores en L23; no alterar esas referencias.
 ### L22 — Cierre de revisión UI y estado local, 12/11/2026
 
 > 1
@@ -398,39 +395,21 @@ Conservar los cuatro fallos preexistentes de L17; no repararlos fuera de alcance
 Prueba manual persistente sigue bloqueada por el lanzamiento previamente denegado:
 preparar datos/guía no equivale a URL disponible ni aceptación humana.
 
-### L27 — Navegación implementada; cierre de prueba de selector, 12/11/2026
+### L27 — Navegación y corrección del selector, 12/11/2026
 
-U1 vuelve de `/root/rights_vertical_slice` con navegación URL, enlaces de ficha/
-evidencia/historial e invalidación de las dos familias de consultas. Se añadió la
-superficie exacta `frontend/src/components/financiadores/FichaPadronAdministrativa.jsx`
-tras inspección del padre: sólo pasa identidad de organización/persona al historial.
-El escritor la editó antes de pedir ampliación; se pausó, inspeccionó y autorizó
-expresamente ese cambio necesario. No es permiso para ampliar otras superficies.
+Registro completo y rutas de evidencia conservados en este archivo a commit
+`170ab58`, L27. U1 añadió enlaces y contexto URL sin cambiar backend. El padre
+autorizó el caller adicional FichaPadronAdministrativa, limitado a dos IDs,
+después de detectar que el escritor lo había editado fuera de superficie.
 
-Pruebas: RED observado, unit final 13/13 y build sin advertencias. Suite real una
-vez: 14 aprobadas/4 fallidas. Dos snapshots corregidos a selección URL directa:
-recheck 2/2. El recorrido restante tenía una expectativa fija de cobertura y un
-selector ambiguo. La corrección del selector siguió fallando; el escritor atribuyó
-sin prueba el fallo a paginación. El padre contrastó la captura conservada:
-`error-context.md` mostraba explícitamente `Ver novedad #256` en la página.
-La causa era `filter({has: panelHistorial...})`: buscaba el panel ancestro dentro
-de la fila. Segundo ajuste permitido del MISMO bloqueador, sólo locator relativo,
-conservando ID/origen exactos; recheck escritorio/móvil 2/2 aprobado. No se repitió
-la suite completa ni se presenta como una ejecución verde. Spot check del padre:
-unit 13/13, sin skips, y diff check aprobados. No cambió backend ni política.
-
-Logs privados en TEMP: `derechos-u1-full-e2e.log`, `derechos-u1-correction-e2e.log`,
-`derechos-u1-focused-final-recheck.log`, `derechos-u1-selector-correction.log`,
-`derechos-u1-final-unit.log`, `derechos-u1-final-build.log`. Manifiesto sintético:
-`derechos-u1-final-manifest.json`, no versionar ni exponer sus credenciales.
-Capturas: `salud-derechos-real-resultados/`. Sin API/Vite/Playwright del escritor
-al finalizar; PG propio permanece. No hubo limpieza ni lanzamiento persistente.
-
-Pendiente: diferencial previo/nuevo, verificador independiente por Risk item 3,
-commit/revisión nativa si aplica, U2/U3 y entorno manual. Assessment inicial no
-pudo evaluar sin inventario untracked explícito; no se bajó el riesgo. Se excluye
-`.atl/` ajeno y se incluyen sólo los dos nuevos archivos derechosNavigation.
-No se inició START ni otra revisión de los candidatos ya consumidos.
+RED observado, unit13 y build aprobados; suite real una vez14/18. Dos snapshots
+corregidos a selección directa: recheck2/2. El fallo posterior no era paginación:
+la captura mostraba el enlace. `filter({has: panelHistorial...})` buscaba el
+panel ancestro dentro de la fila. Corrección limitada al locator relativo:
+recheck escritorio/móvil2/2. No se afirma suite completa verde.
+Logs TEMP `derechos-u1-*.log`; manifest privado `derechos-u1-final-manifest.json`;
+capturas `salud-derechos-real-resultados/`. Sin servidores al finalizar, PG propio
+retenido; limpieza bloqueada. Diferencial/verificación posterior en L28.
 
 ### L28 — Verificación independiente U1 y corrección de identidad, 12/11/2026
 
@@ -464,21 +443,14 @@ de la navegación produciría cortes sin recorrido usable. Se conserva la cadena
 elegida; recomendar `size:exception` para una eventual PR de U1, sin abrirla ni
 publicar ahora. La corrección y sus pruebas no se comprimen para bajar el conteo.
 
-### L29 — U1 guardado localmente; elección de revisión pendiente, 12/11/2026
+### L29 — U1 guardado y consentimiento histórico, 12/11/2026
 
-Plan/tracking: `eef13f901c8fb2564958af37b17afecb4de08ab5`, 257 líneas,
-assessment nativo passive. U1: `584e172ede526978bafb023c2022524474d04135`,
-496 líneas/8 archivos, high por Risk item 3. Nada publicado. `.atl/` queda fuera.
-Base de revisión U1: `eef13f9`; lineage `review-1e03e6f1765dd68d`;
+Plan `eef13f9` passive257 líneas; U1 `584e172` high496 líneas/8 archivos.
+Baseeef13f9, lineage `review-1e03e6f1765dd68d`,
 target `sha256:00155fcac2c81f7ddd0a5ba309da96d6a14d1770faeb68b7afbd7fd0a8e25ee3`.
-START exacto devolvió consentimiento v3, sin iniciar revisores. Sobre completo,
-opciones e invocaciones EXACTAS conservadas en Engram #3228,
-topic `reviews/derechos-u1-navigation`; no reconstruir comandos desde esta prosa.
-Elección única pendiente: revisar este cambio (granted) u omitir esta vez (declined).
-No reutilizar consentimiento del primer corte. Tras resolver esta transacción,
-continuar U2/U3 con Luna; no pedir aprobación genérica para desarrollo ya solicitado.
-Cuatro lentes si se concede; no sustituyen pruebas funcionales ni aceptación humana.
-El entorno manual persistente sigue sin estar disponible y T5 sigue fuera de alcance.
+Sobre exacto histórico Engram#3228, topic reviews/derechos-u1-navigation.
+El consentimiento se resolvió y consumió en L30; NO reutilizar invocaciones.
+Nada publicado, .atl excluido; U2/U3 siguen autorizados sin aprobar políticaT5.
 
 ### L30 — Revisión U1 concedida y reconocida; continúa U2, 12/11/2026
 
@@ -495,3 +467,78 @@ No hacer STATUS posterior ni reusar esa autoridad. Engram #3228 queda histórico
 U1 cerrado localmente; continúan U2/T8b y U3/T8c, sin pedir aprobación genérica.
 U2 conserva el único formulario de Novedades, permisos y URL heredada de borradores;
 no automatiza elegibilidad ni convierte metadatos en derechos activos.
+
+### L31 — Dependencia de fixture futuro adelantada para verificar U2
+
+Rama U2 `juanikitro/DERECHOS-05-operativo`, base `170ab58`. El API público de
+alta de padrón rechaza desde futuro con400: «La vigencia del padrón debe ser una
+fecha actual o anterior.» La ausencia de ese escenario en manifest no prueba
+la UI futura. El padre adelanta de U3 sólo su preparación y amplía la superficie
+a `frontend/e2e/fixtures/preparar_novedades_real.py`: persona sintética futura
+con cobertura=true e IDs adicionales por viewport; claves previas y guards
+localhost/DB/TEMP/manifest nuevo intactos. Sólo datos ficticios propios. Fecha
+relativa es escenario de prueba, no regla ni plazo normativo. Finalizada se
+prepara con API pública. Recheck focal futuro/finalizado, sin nueva suite amplia.
+El resto del conjunto manual U3 permanece pendiente. No requiere decisión médica.
+
+El padre añadió después a la misma superficie una cuenta ficticia sin membresías
+para probar acceso negativo a Derechos/Borradores; ningún guard ni cuenta previa
+se modifica. Manifest privado nuevo. El primer documento futuro alfanumérico no
+coincidía con su normalización: se corrigió el dato, conservando número alfanumérico
+DISTINTO del documento numérico. Se comprobó búsqueda por documento real soportada;
+no se ocultó la prueba igualando artificialmente documento y número.
+U2: unit15/build aprobados; suite24/24 antes de últimas ampliaciones; focal de
+recorrido/auditor4/4 y futuro/finalizado/sin-membresía4/4 posteriores. No se afirma
+suite final única verde. Diferencial de menú por roles aprobado; falta comparar
+UI de URL heredada con baseline. Padre confirmó unit15 y diffcheck. CodeGraph
+devolvió Transport closed; se usaron lecturas acotadas sin fingir índice actualizado.
+Sin listeners8231/5179 al cierre del escritor; no demo/aceptación humana.
+
+### L32 — U2 verificado independientemente; cierre local pendiente
+
+Snapshot staged contra `170ab586`: unit15; U2 real8; identidad/tenant/respuesta
+tardía/teclado2; diferencial Borradores2 en base y2 en candidato. Todos aprobados,
+sin skips ni bloqueadores. Back/forward/limpiar/recarga y móvil: cero POST y hash
+de padrón/novedades/historial idéntico. Futura/finalizada con booleano habilitado
+mantienen clasificación distinta; sin membresía no consulta la organización.
+Legacy diferencial incluye admin/operador/auditor/sin membresía: preview, guardar
+dos versiones, simular y trazabilidad equivalentes; escritura operador/auditor403,
+sin membresía404. Guardar borradores no cambia derechos ni datos del padrón.
+Normalización sólo autor/fecha/IDs sintéticos y cambios visuales autorizados.
+Un locator de etiqueta falló en el harness base, se corrigió sólo el probe y se
+repitió una vez; no fue defecto del producto. Padre repitió unit15 y diffcheck.
+
+Evidencia TEMP/derechos-u2-verify-42705e13b6094268868ae5a7b5f3e2d1: unit.log,
+u2-real.log, u2-identity.log, legacy-candidate.log, legacy-baseline-corrected.log.
+Manifiestos privados; procesos terminados, sin listeners8231/5179. No limpieza,
+instalación ni aceptación humana. La revisión nativa no sustituye estos probes.
+U2 real: 468 líneas authored/9 archivos, una unidad con pruebas y documentación;
+mantenerla coherente y recomendar size:exception para eventual PR, no code-golf.
+
+### L33 — Elección de revisión U2 pendiente
+
+Commit local `8df56864bc0fadce90613aee368714370ddc1b87`, base `170ab586`;
+9 archivos/468 líneas. Assessment high por item2 y contrato compartido item3.
+START exacto devolvió consentimiento v3, sin ejecutar revisores. Sobre completo
+e invocaciones EXACTAS en Engram#3301, topic `reviews/derechos-u2-operativo`.
+Lineage `review-2e199ba7dba0676a`; target
+`sha256:d4b5bee8dc30a5ee7dfe36553921206a9044a0632d3c3ab3d61f9de7123d8e70`.
+Esperar elección única granted/declined y usar sólo la invocación capturada.
+U1 ya consumido, nunca reabrir. Después continuar U3 y preparación manual;
+sin nueva autorización de push, PR, deploy ni lanzamiento persistente bloqueado.
+
+### L34 — Revisión U2 concedida y consumida; preparación manual siguiente
+
+> 1
+
+Grant aplicado una vez a la invocación capturada de L33. STATUS ligado exacto y
+cuatro captures concurrentes; cero hallazgos. Revisión estática, no ejecución de
+tests. Acknowledge-approved exacto confirmó `action=acknowledged`, `authority=burned`,
+lineage/target de L33, revisión consumida
+`sha256:53d7a1c91973e446de816b31c7c7ce58e364822a59ea7afc0654411fe16a1470`.
+Engram#3301 queda histórico; no volver a STATUS ni reutilizar consentimientos.
+Continúa U3: datos manuales sintéticos separados de datos E2E, escenarios listos
+para decidir/aplicado/sin cambios/conflicto/futuro/finalizado/histórico desconocido;
+operador y auditor locales, enlaces y resultados esperados. Conservar guards y
+claves previas del fixture. No nuevos modelos/servicios ni políticas. La guía debe
+separar archivos/datos preparados de servidores activos y aceptación humana.
