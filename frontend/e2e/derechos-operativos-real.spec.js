@@ -1,4 +1,7 @@
 import fs from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
@@ -18,6 +21,69 @@ async function autenticar(page, baseURL, rol = "operador") {
     sessionStorage.setItem("salud.refresh", refresh);
   }, sesion);
   return { ...datos, headers: { Authorization: `Bearer ${sesion.access}` } };
+}
+
+async function autenticarManual(page, baseURL, rol = "operador") {
+  expect(["127.0.0.1", "localhost"]).toContain(new URL(baseURL).hostname);
+  const datos = JSON.parse(fs.readFileSync(process.env.SALUD_NOVEDADES_MANIFEST, "utf8"));
+  expect(datos.purpose).toBe("salud-novedades-e2e");
+  expect(datos.manual?.organizaciones?.length).toBeGreaterThan(0);
+  const manual = datos.manual;
+  const respuesta = await page.request.post("/api/auth/token/", {
+    data: { email: manual[rol], password: manual.password },
+  });
+  expect(respuesta.ok()).toBeTruthy();
+  const sesion = await respuesta.json();
+  await page.addInitScript(({ access, refresh }) => {
+    sessionStorage.setItem("salud.access", access);
+    sessionStorage.setItem("salud.refresh", refresh);
+  }, sesion);
+  return { ...manual, headers: { Authorization: `Bearer ${sesion.access}` } };
+}
+
+async function abrirPersonaManual(page, organizacion, persona) {
+  await page.goto(`/financiadores/derechos?financiador=${organizacion.id}`);
+  await page.getByLabel("Buscar persona por documento, número o nombre").fill(persona.documento);
+  await page.getByRole("button", { name: "Buscar persona", exact: true }).click();
+  await page.getByRole("button", { name: `Seleccionar afiliado #${persona.id}`, exact: true }).click();
+  return page.getByRole("region", { name: "Situación de afiliación" });
+}
+
+function ejecutarFixture(args) {
+  const fixture = path.resolve("e2e/fixtures/preparar_novedades_real.py");
+  const python = process.env.SALUD_DERECHOS_PYTHON || "python";
+  const resultado = spawnSync(python, [fixture, ...args], {
+    cwd: path.resolve("../backend"),
+    encoding: "utf8",
+    timeout: 30000,
+    env: process.env,
+  });
+  return resultado;
+}
+
+function hashBaseAislada() {
+  const python = process.env.SALUD_DERECHOS_PYTHON || "python";
+  const consulta = [
+    "import django, hashlib, json",
+    "django.setup()",
+    "from django.db import connection",
+    "estado = {}",
+    "with connection.cursor() as cursor:",
+    "    for tabla in sorted(connection.introspection.table_names()):",
+    "        cursor.execute('SELECT * FROM ' + connection.ops.quote_name(tabla))",
+    "        estado[tabla] = sorted(json.dumps(fila, default=str, ensure_ascii=False) for fila in cursor.fetchall())",
+    "print(hashlib.sha256(json.dumps(estado, sort_keys=True, ensure_ascii=False).encode()).hexdigest())",
+  ].join("\n");
+  const resultado = spawnSync(python, ["-B", "-c", consulta], {
+    cwd: path.resolve("../backend"),
+    encoding: "utf8",
+    timeout: 30000,
+    env: process.env,
+  });
+  expect(resultado.error).toBeUndefined();
+  expect(resultado.status).toBe(0);
+  expect(resultado.stdout.trim()).toMatch(/^[a-f0-9]{64}$/);
+  return resultado.stdout.trim();
 }
 
 async function crearNovedadConciliada(page, datos, organizacion) {
@@ -219,4 +285,186 @@ test("una identidad sin membresía no abre Derechos ni la URL histórica de Borr
     await expect(page.getByRole("navigation", { name: "Menú del financiador" }).getByRole("link", { name: "Derechos", exact: true })).toHaveCount(0);
   }
   expect(accesosOrganizacion).toEqual([]);
+});
+
+test("los rechazos del preparador conservan el manifiesto y no escriben archivos", async () => {
+  const manifiesto = process.env.SALUD_NOVEDADES_MANIFEST;
+  const original = fs.readFileSync(manifiesto);
+  const existente = ejecutarFixture([manifiesto]);
+  expect(existente.error).toBeUndefined();
+  expect(existente.status).not.toBe(0);
+  expect(`${existente.stdout}${existente.stderr}`).toMatch(/manifiesto/i);
+  expect(fs.readFileSync(manifiesto)).toEqual(original);
+
+  const rutaEquivocadaExistente = path.resolve("e2e/derechos-operativos-real.spec.js");
+  const contenidoExistente = fs.readFileSync(rutaEquivocadaExistente);
+  const ruta = ejecutarFixture([rutaEquivocadaExistente]);
+  expect(ruta.error).toBeUndefined();
+  expect(ruta.status).not.toBe(0);
+  expect(`${ruta.stdout}${ruta.stderr}`).toMatch(/temporal|fuera/i);
+  expect(fs.readFileSync(rutaEquivocadaExistente)).toEqual(contenidoExistente);
+
+  const opcion = ejecutarFixture(["--opcion-no-admitida", manifiesto]);
+  expect(opcion.error).toBeUndefined();
+  expect(opcion.status).not.toBe(0);
+  expect(`${opcion.stdout}${opcion.stderr}`).toMatch(/unrecognized arguments|argumentos no reconocidos/i);
+  expect(fs.readFileSync(manifiesto)).toEqual(original);
+});
+
+test("un fallo al escribir el manifiesto revierte toda la preparación estándar y manual", async () => {
+  const resultados = [];
+  for (const [modo, argumentos] of [["estándar", []], ["manual", ["--manual"]]]) {
+    const directorioAusente = path.join(tmpdir(), `derechos-u3-atomic-${randomUUID()}`, modo);
+    const manifiesto = path.join(directorioAusente, "manifest.json");
+    expect(fs.existsSync(directorioAusente)).toBe(false);
+    const antes = hashBaseAislada();
+    const intento = ejecutarFixture([...argumentos, manifiesto]);
+    const despues = hashBaseAislada();
+    resultados.push({
+      modo, antes, despues, error: intento.error,
+      status: intento.status,
+      fileError: `${intento.stdout}${intento.stderr}`.includes("FileNotFoundError"),
+      manifiestoCreado: fs.existsSync(manifiesto),
+    });
+  }
+  expect(resultados.map(({ modo }) => modo)).toEqual(["estándar", "manual"]);
+  expect(resultados.map(({ error }) => error)).toEqual([undefined, undefined]);
+  expect(resultados.map(({ status }) => status)).toEqual([1, 1]);
+  expect(resultados.map(({ fileError }) => fileError)).toEqual([true, true]);
+  expect(resultados.map(({ manifiestoCreado }) => manifiestoCreado)).toEqual([false, false]);
+  expect(resultados.map(({ antes, despues }) => despues === antes)).toEqual([true, true]);
+});
+
+test("la preparación manual separa actores y conserva el flujo explícito de decisión", async ({ page, baseURL }, testInfo) => {
+  test.skip(!process.env.SALUD_DERECHOS_MANUAL, "Requiere un manifiesto separado con --manual.");
+  const datos = await autenticarManual(page, baseURL, "operador");
+  const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
+  const escenarios = organizacion.escenarios;
+  const normal = JSON.parse(fs.readFileSync(process.env.SALUD_NOVEDADES_MANIFEST, "utf8"));
+  expect(datos.operador).not.toBe(normal.operador);
+  expect(datos.auditor).not.toBe(normal.auditor);
+  expect(organizacion.id).not.toBe(normal.organizaciones[0].id);
+
+  const detalle = async (novedad) => page.request.get(
+    `/api/financiadores/${organizacion.id}/novedades/${novedad}/`, { headers: datos.headers },
+  );
+  const ficha = async (afiliado) => page.request.get(
+    `/api/financiadores/${organizacion.id}/ficha-afiliado/?${new URLSearchParams({ afiliado: String(afiliado), page: "1", page_size: "10" })}`,
+    { headers: datos.headers },
+  );
+
+  const antes = await detalle(escenarios.decision.novedad);
+  expect(antes.status()).toBe(200);
+  const propuesta = await antes.json();
+  expect(propuesta.estado).toBe("pendiente");
+  expect(propuesta.persona_actual.cobertura_habilitada).toBe(false);
+  const conciliada = await page.request.post(
+    `/api/financiadores/${organizacion.id}/novedades/${escenarios.decision.novedad}/resolver/`, {
+      headers: datos.headers,
+      data: {
+        accion: "conciliar", motivo: "Conciliación sintética sin efectos.", revision: propuesta.revision,
+        revision_padron: propuesta.persona_actual.revision, confirmar_conflictos: false,
+      },
+    },
+  );
+  expect(conciliada.status()).toBe(200);
+  const conciliacion = await conciliada.json();
+  expect(conciliacion.estado).toBe("conciliada");
+  expect(conciliacion.habilitacion_cobertura).toBeFalsy();
+  expect((await (await ficha(escenarios.decision.afiliado.id)).json()).afiliado.cobertura_habilitada).toBe(false);
+
+  await page.goto(`/financiadores/derechos?financiador=${organizacion.id}&afiliado=${escenarios.decision.afiliado.id}&novedad=${escenarios.decision.novedad}`);
+  const dialogo = page.getByRole("dialog", { name: `Novedad #${escenarios.decision.novedad}`, exact: true });
+  await expect(dialogo).toBeVisible();
+  let escrituras = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes("/habilitacion-cobertura/")) escrituras += 1;
+  });
+  await expect(dialogo.getByLabel("Estado de cobertura")).toBeVisible();
+  expect(escrituras).toBe(0);
+  await dialogo.getByLabel("Estado de cobertura").selectOption("habilitar");
+  await dialogo.getByLabel("Motivo de la decisión").fill("Decisión manual sintética revisada.");
+  const guardada = page.waitForResponse((response) => response.request().method() === "POST"
+    && response.url().endsWith(`/novedades/${escenarios.decision.novedad}/habilitacion-cobertura/`));
+  await dialogo.getByRole("button", { name: "Aplicar decisión de cobertura", exact: true }).click();
+  const respuesta = await guardada;
+  expect(respuesta.status()).toBe(200);
+  const resultado = await respuesta.json();
+  expect(resultado.habilitacion_cobertura.cobertura_habilitada).toBe(true);
+  expect(resultado.habilitacion_cobertura.historial_id).toBeTruthy();
+  expect(escrituras).toBe(1);
+  const historia = await page.request.get(
+    `/api/financiadores/${organizacion.id}/padron/${escenarios.decision.afiliado.id}/historial/`,
+    { headers: datos.headers },
+  );
+  expect(historia.ok()).toBeTruthy();
+  expect((await historia.json()).results).toContainEqual(expect.objectContaining({
+    id: resultado.habilitacion_cobertura.historial_id, lote: escenarios.decision.novedad, origen: "novedad",
+  }));
+
+  const aplicada = await (await detalle(escenarios.aplicada.novedad)).json();
+  expect(aplicada.habilitacion_cobertura.resultado).toBe("cambiada");
+  expect(aplicada.habilitacion_cobertura.historial_id).toBe(escenarios.aplicada.historial);
+  const sinCambios = await (await detalle(escenarios.sin_cambios.novedad)).json();
+  expect(sinCambios.habilitacion_cobertura.resultado).toBe("sin_cambios");
+  expect(sinCambios.habilitacion_cobertura.historial_id).toBeNull();
+  const historiaSinCambios = await page.request.get(
+    `/api/financiadores/${organizacion.id}/padron/${escenarios.sin_cambios.afiliado.id}/historial/`,
+    { headers: datos.headers },
+  );
+  expect(historiaSinCambios.ok()).toBeTruthy();
+  expect((await historiaSinCambios.json()).results).not.toContainEqual(expect.objectContaining({
+    lote: escenarios.sin_cambios.novedad, origen: "novedad",
+  }));
+});
+
+test("evidencia manual obsoleta se rechaza sin efectos y se distinguen vigencia e historia desconocida", async ({ page, baseURL }, testInfo) => {
+  test.skip(!process.env.SALUD_DERECHOS_MANUAL, "Requiere un manifiesto separado con --manual.");
+  const datos = await autenticarManual(page, baseURL, "operador");
+  const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
+  const escenarios = organizacion.escenarios;
+  const detalleRuta = (id) => `/api/financiadores/${organizacion.id}/novedades/${id}/`;
+  const antes = await (await page.request.get(detalleRuta(escenarios.conflicto.novedad), { headers: datos.headers })).json();
+  expect(antes.estado).toBe("pendiente");
+  expect(antes.conflictos).toContain("padron_modificado");
+  const rechazo = await page.request.post(
+    `/api/financiadores/${organizacion.id}/novedades/${escenarios.conflicto.novedad}/resolver/`, {
+      headers: datos.headers,
+      data: {
+        accion: "conciliar", motivo: "Intento sintético con evidencia obsoleta.", revision: antes.revision,
+        revision_padron: antes.persona_actual.revision, confirmar_conflictos: false,
+      },
+    },
+  );
+  expect(rechazo.status()).toBe(400);
+  const despues = await (await page.request.get(detalleRuta(escenarios.conflicto.novedad), { headers: datos.headers })).json();
+  expect(despues.estado).toBe("pendiente");
+  expect(despues.persona_actual.cobertura_habilitada).toBe(false);
+  expect(despues.habilitacion_cobertura).toBeFalsy();
+
+  const futura = await abrirPersonaManual(page, organizacion, escenarios.futura);
+  await expect(futura.getByText("Futura", { exact: true })).toBeVisible();
+  await expect(futura.getByText("Habilitada", { exact: true })).toBeVisible();
+  const finalizada = await abrirPersonaManual(page, organizacion, escenarios.finalizada);
+  await expect(finalizada.getByText("Finalizada", { exact: true })).toBeVisible();
+  await expect(finalizada.getByText("Habilitada", { exact: true })).toBeVisible();
+  const historica = escenarios.historica;
+  await page.goto(`/financiadores/derechos?financiador=${organizacion.id}&afiliado=${historica.afiliado.id}&novedad=${historica.novedad}`);
+  const detalleHistorico = page.getByRole("dialog", { name: `Novedad #${historica.novedad}`, exact: true });
+  await expect(detalleHistorico).toBeVisible();
+  await expect(detalleHistorico.getByText(/Cobertura: No registrado/)).toBeVisible();
+});
+
+test("el auditor manual consulta evidencia sin controles de decisión", async ({ page, baseURL }, testInfo) => {
+  test.skip(!process.env.SALUD_DERECHOS_MANUAL, "Requiere un manifiesto separado con --manual.");
+  const datos = await autenticarManual(page, baseURL, "auditor");
+  const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
+  const decision = organizacion.escenarios.decision;
+  await page.goto(`/financiadores/derechos?financiador=${organizacion.id}&afiliado=${decision.afiliado.id}&novedad=${decision.novedad}`);
+  const detalle = page.getByRole("dialog", { name: `Novedad #${decision.novedad}`, exact: true });
+  await expect(detalle).toBeVisible();
+  await expect(detalle.getByRole("link", { name: "Ver historial", exact: true })).toBeVisible();
+  await expect(detalle.getByLabel("Estado de cobertura")).toHaveCount(0);
+  await expect(detalle.getByLabel("Motivo de la decisión")).toHaveCount(0);
+  await expect(detalle.getByRole("button", { name: "Aplicar decisión de cobertura", exact: true })).toHaveCount(0);
 });

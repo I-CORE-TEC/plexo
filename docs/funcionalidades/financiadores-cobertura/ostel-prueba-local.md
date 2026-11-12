@@ -54,3 +54,123 @@ Al preparar la guía, la base conservaba algunos lotes del chequeo automático c
 En dos terminales, ejecutar respectivamente los scripts `iniciar-backend.ps1` e `iniciar-frontend.ps1` de la carpeta temporal indicada. No hacerlo si los puertos 8139 y 5189 ya están ocupados por esta demo. La base persiste; no hay que volver a migrar ni borrar datos para continuar la guía.
 
 Al terminar, anotar qué pasos pasaron y dónde se apartó el resultado esperado. La aceptación visual y los escenarios de producción siguen separados de los checks técnicos.
+
+## Derechos operativo — preparación manual aislada
+
+Esta guía es aparte de la demostración OSTEL anterior. Prepara usuarios y
+organizaciones manuales que no comparten cuenta ni afiliados con la fixture E2E
+habitual. Sólo usa la base ficticia PostgreSQL `salud_financiadores_test` por
+loopback. No carga archivos OSTEL, no inicia reglas de derechos, no afecta
+familias/prestaciones/dinero y no limpia ni reinicia datos existentes.
+
+### Preparar datos y leer accesos localmente
+
+Abra PowerShell en la raíz del worktree `DERECHOS`. Ejecute una vez:
+
+```powershell
+$repo = (git rev-parse --show-toplevel).Trim()
+$env:DJANGO_SETTINGS_MODULE = 'config.settings_financiadores_postgres_test'
+$env:DJANGO_DEBUG = 'true'
+$env:PYTHON_DOTENV_DISABLED = '1'
+$env:ENTORNO = 'desarrollo'
+$env:SALUD_TEST_POSTGRES_URL = 'postgresql://postgres@127.0.0.1:54697/salud_financiadores_test'
+$env:SALUD_DERECHOS_E2E_AISLADO = '1'
+$env:SALUD_DERECHOS_PYTHON = 'python'
+$manifest = Join-Path $env:TEMP "derechos-manual-$([guid]::NewGuid().ToString('N')).json"
+Push-Location "$repo\backend"
+try { & $env:SALUD_DERECHOS_PYTHON -B ..\frontend\e2e\fixtures\preparar_novedades_real.py --manual $manifest }
+finally { Pop-Location }
+if ($LASTEXITCODE -ne 0) { throw 'No se preparó la fixture manual.' }
+$env:SALUD_NOVEDADES_MANIFEST = $manifest
+Write-Output "Manifiesto privado: $manifest"
+$datos = Get-Content -Raw $manifest | ConvertFrom-Json
+$datos.manual | Select-Object operador, auditor, password, organizaciones | ConvertTo-Json -Depth 8
+```
+
+El manifiesto queda en `%TEMP%`. Sus contraseñas aleatorias se muestran sólo en
+esta consola local. No las copie al repositorio, a logs compartidos, al chat ni a
+capturas. Conserve la ruta impresa para las dos terminales siguientes. La misma
+clave sirve para los dos usuarios manuales; seleccione `operador` o `auditor`
+según el paso.
+
+### Iniciar los dos servidores bajo control del usuario
+
+Abra dos terminales PowerShell en la raíz del worktree. En cada una, reemplace
+`<ruta privada impresa>` por el manifiesto de esta preparación. Ambos comandos
+son foreground: permanecen activos hasta que el usuario los detenga con Ctrl+C.
+Los intentos anteriores de iniciar servidores persistentes fueron denegados por
+el runtime y el demo persistente continúa bloqueado. No se reintentan aquí; esta
+sección sólo entrega comandos foreground para que los ejecute el usuario.
+
+**Terminal 1 — backend**
+
+```powershell
+$repo = (git rev-parse --show-toplevel).Trim()
+$env:DJANGO_SETTINGS_MODULE = 'config.settings_financiadores_postgres_test'
+$env:DJANGO_DEBUG = 'true'
+$env:PYTHON_DOTENV_DISABLED = '1'
+$env:ENTORNO = 'desarrollo'
+$env:SALUD_TEST_POSTGRES_URL = 'postgresql://postgres@127.0.0.1:54697/salud_financiadores_test'
+$env:SALUD_DERECHOS_E2E_AISLADO = '1'
+$env:SALUD_NOVEDADES_MANIFEST = '<ruta privada impresa>'
+Set-Location "$repo\backend"
+python -B manage.py runserver 127.0.0.1:8231 --noreload
+```
+
+**Terminal 2 — frontend**
+
+```powershell
+$repo = (git rev-parse --show-toplevel).Trim()
+$env:DJANGO_SETTINGS_MODULE = 'config.settings_financiadores_postgres_test'
+$env:DJANGO_DEBUG = 'true'
+$env:PYTHON_DOTENV_DISABLED = '1'
+$env:ENTORNO = 'desarrollo'
+$env:SALUD_TEST_POSTGRES_URL = 'postgresql://postgres@127.0.0.1:54697/salud_financiadores_test'
+$env:SALUD_DERECHOS_E2E_AISLADO = '1'
+$env:SALUD_NOVEDADES_MANIFEST = '<ruta privada impresa>'
+$env:VITE_PROXY_TARGET = 'http://127.0.0.1:8231'
+Set-Location "$repo\frontend"
+npm run dev -- --host 127.0.0.1 --port 5179 --strictPort
+```
+
+Abra `http://127.0.0.1:5179/financiadores/derechos?financiador=<ID manual>`.
+Use uno de los IDs y documentos de `manual.organizaciones` del manifiesto; no
+use organizaciones de `organizaciones` (la fixture E2E estándar). No corra otra
+prueba contra la misma base mientras realiza la aceptación.
+
+### Escenarios esperados y aceptación humana
+
+- **Listo para decidir:** la novedad aparece pendiente. Conciliarla no cambia
+  `cobertura_habilitada` ni agrega historial de cobertura. Después, el operador
+  elige habilitar explícitamente, escribe un motivo y confirma. El historial
+  queda enlazado a la novedad.
+- **Ya aplicado:** la persona muestra el valor actualizado y el historial
+  existente enlazado a esa novedad.
+- **Sin cambios:** la novedad registra `sin_cambios`; el historial de afiliación
+  no inventa un cambio.
+- **Evidencia obsoleta/conflicto:** la resolución se rechaza, conserva la
+  novedad pendiente y no cambia la cobertura.
+- **Futura y finalizada:** ambas pueden mostrar `Habilitada` como valor
+  administrativo; la clasificación `Futura`/`Finalizada` sigue prevaleciendo.
+  Ese booleano no las vuelve elegibles ni garantiza prestaciones.
+- **Histórico opcional ausente:** en la evidencia inicial aparece `No
+  registrado`; no se completa ni se infiere el dato faltante.
+
+Checklist con operador y auditor:
+
+- [ ] Operador: buscar y abrir una persona; navegar por teclado con Tab, Shift+Tab,
+  Enter/Espacio y Escape; verificar que el foco y los nombres accesibles permitan
+  operar el detalle sin mouse.
+- [ ] Operador: conciliar sin efectos; luego realizar sólo la decisión explícita
+  del escenario preparado y abrir el historial asociado.
+- [ ] Operador: revisar aplicada, sin cambios, conflicto, futura, finalizada e
+  histórico no registrado según el manifiesto.
+- [ ] Auditor: repetir consultas; confirmar que puede leer evidencia e historial,
+  pero no ve controles de decisión ni puede aplicar cambios.
+- [ ] Repetir a ancho de escritorio y móvil; observar foco, lectura, scroll y
+  mensajes. Anotar diferencias reales en vez de asumir aceptación.
+
+La prueba automatizada corre desktop y móvil, pero no sustituye la comprobación
+manual de teclado, la aceptación humana ni una homologación. No hay URL activa ni
+servidores listos por el agente. La política T5 sigue fuera de alcance; esta
+fixture sólo prepara estados sintéticos y reutiliza transiciones existentes.
