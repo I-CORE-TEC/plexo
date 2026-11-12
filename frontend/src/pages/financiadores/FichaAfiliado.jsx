@@ -16,6 +16,7 @@ import DetalleAutorizacion, { EstadoAutorizacion, PaginasAutorizacion } from "./
 import { ESTADOS } from "./ActividadFinanciador";
 import { estadoCaso } from "@/lib/dominio";
 import { parametrosListado } from "@/lib/padronNavigation";
+import { buildRightsNoveltyUrl } from "@/lib/derechosNavigation";
 import { NOMBRE_SISTEMA } from "@/lib/marca";
 import FichaPadronAdministrativa from "@/components/financiadores/FichaPadronAdministrativa";
 import TarjetaFicha from "@/components/financiadores/TarjetaFicha";
@@ -225,6 +226,7 @@ function FichaAfiliadoContenido() {
         {persona && <div className="flex flex-wrap items-center gap-2">
           <Badge tone={{ vigentes: "green", administrativas: "amber", finalizadas: "gray", futuras: "info" }[derecho] || "neutral"}>{valorColumnaPadron(persona, COLUMNA_DERECHO)}</Badge>
           {pendientes.data?.count > 0 && <Badge tone="amber">{plural(pendientes.data.count, "autorización pendiente", "autorizaciones pendientes")}</Badge>}
+          {id && <Link className="rounded-md border border-borde px-3 py-2 text-sm font-medium text-accent hover:bg-superficie-2" to={buildRightsNoveltyUrl({ financierId: id, affiliateId: persona.id })}>Ver novedades de esta persona</Link>}
         </div>}
       </div>
       {persona && <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-division pt-4 text-sm sm:grid-cols-3 lg:grid-cols-5">{[["N.º de afiliado", persona.numero], ["Documento", persona.documento], ["Plan", persona.plan_nombre || "Sin plan"], ["Desde", fecha(persona.desde)], ...(persona.finalizado_en ? [["Finalizada", fechaHora(persona.finalizado_en)]] : [])].map(([label, valor]) => <div key={label} className="min-w-0"><dt className="text-xs font-medium uppercase tracking-wide text-texto-debil">{label}</dt><dd className="mt-1 break-words font-medium tabular-nums">{valor}</dd></div>)}</dl>}

@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import { errorFinanciador, filasDe, rutaFinanciador } from "@/api/financiadores";
 import { Button, Card, Checkbox, Field, Input, Modal, Select, Spinner, Textarea } from "@/components/ui";
+import { buildRightsAffiliateUrl, parseRightsNavigation, updateRightsNavigation } from "@/lib/derechosNavigation";
 
 const ESTADOS = { pendiente: "Pendiente", conciliada: "Conciliada sin aplicación", descartada: "Descartada" };
 const CONFLICTOS = { padron_modificado: "El padrón cambió desde el registro de la propuesta.", referencia_repetida: "La fuente y referencia coinciden con otra propuesta. No se eligió una ganadora." };
@@ -14,75 +16,111 @@ function vacia() {
     fecha_informada: "", descripcion: "", motivo: "", rectifica: null };
 }
 
+function borradorDetalleVacio(identidad) {
+  return { identidad, motivo: "", confirmar: false, valorCobertura: "", motivoCobertura: "", error: null };
+}
+
 export default function NovedadesFinanciador({ organizacion, scope, operador }) {
   const qc = useQueryClient();
-  const [estado, setEstado] = useState("");
-  const [pagina, setPagina] = useState(1);
-  const [seleccion, setSeleccion] = useState(null);
+  const [parametros, setParametros] = useSearchParams();
+  const navegacion = parseRightsNavigation(parametros);
+  const { status: estado, page: pagina, noveltyId: seleccion, affiliateId: afiliado } = navegacion;
+  const identidadDetalle = JSON.stringify([organizacion.id, afiliado, seleccion]);
   const [formulario, setFormulario] = useState(null);
   const [personaInicial, setPersonaInicial] = useState(null);
   const [ocupado, setOcupado] = useState(false);
-  const [error, setError] = useState(null);
-  const [motivo, setMotivo] = useState("");
-  const [confirmar, setConfirmar] = useState(false);
-  const [valorCobertura, setValorCobertura] = useState("");
-  const [motivoCobertura, setMotivoCobertura] = useState("");
+  const [errorFormulario, setErrorFormulario] = useState(null);
+  const [borradorDetalle, setBorradorDetalle] = useState(() => borradorDetalleVacio(identidadDetalle));
+  const valoresDetalle = borradorDetalle.identidad === identidadDetalle
+    ? borradorDetalle
+    : borradorDetalleVacio(identidadDetalle);
+  useLayoutEffect(() => {
+    setBorradorDetalle((actual) => actual.identidad === identidadDetalle
+      ? actual
+      : borradorDetalleVacio(identidadDetalle));
+  }, [identidadDetalle]);
   const base = rutaFinanciador(organizacion.id, "novedades");
   const clave = [...scope, "novedades"];
-  const listado = useQuery({ queryKey: [...clave, estado, pagina], gcTime: 0,
-    queryFn: () => api.get(`${base}?estado=${estado}&page=${pagina}`) });
-  const detalle = useQuery({ queryKey: [...clave, "detalle", seleccion], enabled: seleccion != null,
+  const parametrosConsulta = new URLSearchParams({ page: String(pagina) });
+  if (estado) parametrosConsulta.set("estado", estado);
+  if (afiliado != null) parametrosConsulta.set("afiliado", String(afiliado));
+  const listado = useQuery({ queryKey: [...clave, afiliado, estado, pagina], enabled: !navegacion.invalid, gcTime: 0,
+    queryFn: () => api.get(`${base}?${parametrosConsulta}`) });
+  const detalle = useQuery({ queryKey: [...clave, "detalle", seleccion], enabled: seleccion != null && !navegacion.invalid,
     gcTime: 0, queryFn: () => api.get(`${base}${seleccion}/`) });
-  const novedad = detalle.data;
+  const novedadAjen = detalle.data && afiliado != null && Number(detalle.data.original?.afiliado) !== afiliado;
+  const novedad = novedadAjen ? null : detalle.data;
 
-  function abrir(id) { setSeleccion(id); setMotivo(""); setConfirmar(false); setValorCobertura(""); setMotivoCobertura(""); setError(null); }
+  function cambiarNavegacion(cambios, opciones) {
+    setParametros(updateRightsNavigation(parametros, cambios), opciones);
+  }
+
+  function actualizarBorradorDetalle(cambios) {
+    setBorradorDetalle((actual) => actual.identidad === identidadDetalle
+      ? { ...actual, ...cambios }
+      : actual);
+  }
+  function limpiarBorradorDetalle() {
+    setBorradorDetalle((actual) => actual.identidad === identidadDetalle
+      ? borradorDetalleVacio(identidadDetalle)
+      : actual);
+  }
+  function abrir(id) { cambiarNavegacion({ noveltyId: id }); setErrorFormulario(null); }
   function nueva(antecedente = null) {
     setPersonaInicial(antecedente?.persona_actual || null);
     setFormulario(antecedente ? { ...antecedente.original, clave: crypto.randomUUID(),
       rectifica: antecedente.id, motivo: "" } : vacia());
-    setSeleccion(null); setError(null);
+    cambiarNavegacion({ noveltyId: null }); setErrorFormulario(null);
   }
   async function guardar(event) {
-    event.preventDefault(); setOcupado(true); setError(null);
+    event.preventDefault(); setOcupado(true); setErrorFormulario(null);
     try {
       const resultado = await api.post(base, { ...formulario, afiliado: Number(formulario.afiliado),
         fecha_informada: formulario.fecha_informada || null });
       qc.setQueryData([...clave, "detalle", resultado.id], resultado);
       setFormulario(null); abrir(resultado.id);
       await qc.invalidateQueries({ queryKey: clave });
-    } catch (e) { setError(e); } finally { setOcupado(false); }
+    } catch (e) { setErrorFormulario(e); } finally { setOcupado(false); }
   }
   async function decidir(accion) {
-    setOcupado(true); setError(null);
+    setOcupado(true); actualizarBorradorDetalle({ error: null });
     try {
       const resultado = await api.post(`${base}${novedad.id}/resolver/`, {
-        accion, motivo, revision: novedad.revision, revision_padron: novedad.persona_actual.revision,
-        confirmar_conflictos: confirmar,
+        accion, motivo: valoresDetalle.motivo, revision: novedad.revision, revision_padron: novedad.persona_actual.revision,
+        confirmar_conflictos: valoresDetalle.confirmar,
       });
       qc.setQueryData([...clave, "detalle", resultado.id], resultado);
-      setMotivo(""); setConfirmar(false);
+      limpiarBorradorDetalle();
       await qc.invalidateQueries({ queryKey: clave });
-    } catch (e) { setError(e); } finally { setOcupado(false); }
+    } catch (e) { actualizarBorradorDetalle({ error: e }); } finally { setOcupado(false); }
   }
   async function decidirHabilitacion() {
-    setOcupado(true); setError(null);
+    setOcupado(true); actualizarBorradorDetalle({ error: null });
     try {
       const resultado = await api.post(`${base}${novedad.id}/habilitacion-cobertura/`, {
-        cobertura_habilitada: valorCobertura === "habilitar",
-        motivo: motivoCobertura,
+        cobertura_habilitada: valoresDetalle.valorCobertura === "habilitar",
+        motivo: valoresDetalle.motivoCobertura,
         revision: novedad.revision,
         revision_padron: novedad.persona_actual.revision,
       });
       qc.setQueryData([...clave, "detalle", resultado.id], resultado);
-      setValorCobertura(""); setMotivoCobertura("");
-      await qc.invalidateQueries({ queryKey: clave });
-    } catch (e) { setError(e); } finally { setOcupado(false); }
+      limpiarBorradorDetalle();
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: clave }),
+        qc.invalidateQueries({ queryKey: ["financiador", scope[1], organizacion.id] }),
+      ]);
+    } catch (e) { actualizarBorradorDetalle({ error: e }); } finally { setOcupado(false); }
   }
   async function actualizar() {
-    setConfirmar(false); setError(null);
+    actualizarBorradorDetalle({ confirmar: false, error: null });
     await detalle.refetch();
   }
-  const cerrar = () => { setSeleccion(null); setError(null); };
+  const cerrar = () => { cambiarNavegacion({ noveltyId: null }); };
+  const limpiarContexto = () => cambiarNavegacion({ affiliateId: null, noveltyId: null, status: null, page: null });
+  const fichaActual = novedad && buildRightsAffiliateUrl({ financierId: organizacion.id,
+    affiliateId: novedad.persona_actual.id });
+  const historialActual = novedad && buildRightsAffiliateUrl({ financierId: organizacion.id,
+    affiliateId: novedad.persona_actual.id, tab: "historial" });
 
   return <div className="space-y-4">
     <p role="note" className="rounded-lg border border-division bg-superficie-2 p-4 text-sm">{AVISO}</p>
@@ -91,12 +129,17 @@ export default function NovedadesFinanciador({ organizacion, scope, operador }) 
       <p className="mt-2">No se interpretan fechas o causales como cortes prestacionales, ni se aplican bajas, reingresos, gracia, mora o cambios de plan automáticamente. No se propagan efectos a familias, atención o dinero. Esas conductas requieren reglas validadas; no impiden revisar evidencia administrativa.</p>
     </details>
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <Field label="Estado de la novedad"><Select value={estado} onChange={(e) => { setEstado(e.target.value); setPagina(1); }}>
+      <Field label="Estado de la novedad"><Select value={estado} onChange={(e) => cambiarNavegacion({ status: e.target.value, page: null, noveltyId: null })}>
         <option value="">Todos</option>{Object.entries(ESTADOS).map(([valor, etiqueta]) => <option key={valor} value={valor}>{etiqueta}</option>)}
       </Select></Field>
       {operador && <Button onClick={() => nueva()}>Registrar novedad</Button>}
     </div>
-    {listado.isPending ? <Spinner /> : listado.error ? <p role="alert">{errorFinanciador(listado.error)} <Button variant="secondary" onClick={() => listado.refetch()}>Reintentar</Button></p> : <>
+    {afiliado != null && <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-superficie-2 px-3 py-2 text-sm">
+      <span>Mostrando novedades de la persona #{afiliado}</span>
+      <Button variant="ghost" size="sm" onClick={limpiarContexto}>Quitar filtro de persona</Button>
+    </div>}
+    {navegacion.invalid && <p role="alert" className="rounded-md bg-badge-error-bg p-3 text-sm text-badge-error-fg">El enlace contiene un identificador inválido. Limpiá el enlace antes de continuar. <Button variant="ghost" onClick={limpiarContexto}>Limpiar enlace</Button></p>}
+    {navegacion.invalid ? null : listado.isPending ? <Spinner /> : listado.error ? <p role="alert">{errorFinanciador(listado.error)} <Button variant="secondary" onClick={() => listado.refetch()}>Reintentar</Button></p> : <>
       {!filasDe(listado.data).length && <Card><p className="text-sm text-texto-suave">No hay novedades en este estado.</p></Card>}
       <ul aria-label="Novedades registradas" className="space-y-3">{filasDe(listado.data).map((item) => <li key={item.id}>
         <Card><div className="flex flex-wrap items-center justify-between gap-3">
@@ -106,17 +149,17 @@ export default function NovedadesFinanciador({ organizacion, scope, operador }) 
         </div></Card>
       </li>)}</ul>
       <nav aria-label="Paginación de novedades" className="flex items-center justify-between gap-3">
-        <Button variant="secondary" disabled={!listado.data?.previous} onClick={() => setPagina((n) => n - 1)}>Anterior</Button>
+        <Button variant="secondary" disabled={!listado.data?.previous} onClick={() => cambiarNavegacion({ page: pagina - 1 })}>Anterior</Button>
         <span className="text-sm">Página {pagina} · {listado.data?.count || 0} novedades</span>
-        <Button variant="secondary" disabled={!listado.data?.next} onClick={() => setPagina((n) => n + 1)}>Siguiente</Button>
+        <Button variant="secondary" disabled={!listado.data?.next} onClick={() => cambiarNavegacion({ page: pagina + 1 })}>Siguiente</Button>
       </nav>
     </>}
     {formulario && operador && createPortal(<FormularioNovedad formulario={formulario} cambiar={setFormulario}
       personaInicial={personaInicial} basePadron={rutaFinanciador(organizacion.id, "padron")}
-      scope={scope} ocupado={ocupado} error={error} guardar={guardar} cerrar={() => setFormulario(null)} />, document.body)}
+      scope={scope} ocupado={ocupado} error={errorFormulario} guardar={guardar} cerrar={() => setFormulario(null)} />, document.body)}
     {seleccion != null && createPortal(<Modal title={`Novedad #${seleccion}`} width={860}
       onClose={ocupado ? undefined : cerrar} footer={<Button variant="secondary" disabled={ocupado} onClick={cerrar}>Cerrar</Button>}>
-      {detalle.isPending ? <Spinner /> : detalle.error ? <p role="alert">{errorFinanciador(detalle.error)} <Button onClick={actualizar}>Reintentar</Button></p> : novedad && <div className="space-y-4">
+      {navegacion.invalid ? <p role="alert">El identificador de la novedad no es válido.</p> : novedadAjen ? <p role="alert">La novedad no corresponde a la persona seleccionada. No se muestra la evidencia. <Button variant="ghost" onClick={cerrar}>Limpiar selección</Button></p> : detalle.isPending ? <Spinner /> : detalle.error ? <p role="alert">{errorFinanciador(detalle.error)} <Button onClick={actualizar}>Reintentar</Button></p> : novedad && <div className="space-y-4">
         <p className="font-semibold">{ESTADOS[novedad.estado]}</p><p className="text-sm">{AVISO}</p>
         <section aria-label="Evidencia original" className="rounded-lg border border-division p-4">
           <h2 className="mb-2 font-semibold">Evidencia original</h2>
@@ -138,28 +181,29 @@ export default function NovedadesFinanciador({ organizacion, scope, operador }) 
             <p className="text-texto-suave">{new Date(h.fecha).toLocaleString("es-AR")}</p><p className="mt-1 whitespace-pre-wrap break-words">{h.motivo}</p>
           </li>)}</ol>
         </section>
-        {error && <p role="alert" className="text-badge-error-fg">{errorFinanciador(error)}</p>}
+        {valoresDetalle.error && <p role="alert" className="text-badge-error-fg">{errorFinanciador(valoresDetalle.error)}</p>}
         {novedad.habilitacion_cobertura && <section aria-label="Decisión de cobertura" className="rounded-lg border border-division p-4 text-sm">
           <h2 className="font-semibold">Decisión explícita de cobertura</h2>
           <p className="mt-1">{novedad.habilitacion_cobertura.resultado === "cambiada" ? "Cobertura actualizada" : "Sin cambios: ya tenía el valor elegido"} · {novedad.habilitacion_cobertura.cobertura_habilitada ? "Habilitada" : "Deshabilitada"}</p>
           <p className="mt-1 text-texto-suave">{novedad.habilitacion_cobertura.motivo}</p>
           {novedad.habilitacion_cobertura.historial_id && <p className="mt-1">Cambio enlazado al historial del padrón #{novedad.habilitacion_cobertura.historial_id}.</p>}
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2"><Link className="font-medium text-accent hover:underline" to={fichaActual}>Ver ficha actual</Link><Link className="font-medium text-accent hover:underline" to={historialActual}>Ver historial</Link></div>
         </section>}
         {operador && novedad.estado === "pendiente" && <section className="space-y-3 border-t border-division pt-4">
-          <Field label="Motivo de la decisión"><Textarea value={motivo} maxLength={255} disabled={ocupado} onChange={(e) => setMotivo(e.target.value)} /></Field>
-          {novedad.conflictos.length > 0 && <Checkbox label="Revisé expresamente los conflictos y coincidencias indicados" checked={confirmar} disabled={ocupado} onChange={(e) => setConfirmar(e.target.checked)} />}
-          <div className="flex flex-wrap gap-2"><Button disabled={ocupado || !motivo.trim() || novedad.conflictos.length > 0 && !confirmar} onClick={() => decidir("conciliar")}>Conciliar sin aplicar efectos</Button>
-            <Button variant="secondary" disabled={ocupado || !motivo.trim()} onClick={() => decidir("descartar")}>Descartar propuesta</Button>
+          <Field label="Motivo de la decisión"><Textarea value={valoresDetalle.motivo} maxLength={255} disabled={ocupado} onChange={(e) => actualizarBorradorDetalle({ motivo: e.target.value })} /></Field>
+          {novedad.conflictos.length > 0 && <Checkbox label="Revisé expresamente los conflictos y coincidencias indicados" checked={valoresDetalle.confirmar} disabled={ocupado} onChange={(e) => actualizarBorradorDetalle({ confirmar: e.target.checked })} />}
+          <div className="flex flex-wrap gap-2"><Button disabled={ocupado || !valoresDetalle.motivo.trim() || novedad.conflictos.length > 0 && !valoresDetalle.confirmar} onClick={() => decidir("conciliar")}>Conciliar sin aplicar efectos</Button>
+            <Button variant="secondary" disabled={ocupado || !valoresDetalle.motivo.trim()} onClick={() => decidir("descartar")}>Descartar propuesta</Button>
             <Button variant="ghost" disabled={ocupado} onClick={actualizar}>Actualizar comparación</Button></div>
         </section>}
         {operador && novedad.estado === "conciliada" && !novedad.habilitacion_cobertura && <section aria-label="Decisión explícita de cobertura" className="space-y-3 border-t border-division pt-4">
           <h2 className="font-semibold">Decisión de cobertura</h2>
           <p className="text-sm text-texto-suave">Elegí el estado de forma explícita. No se infiere del código o la fecha de la novedad. Habilitar no reactiva una afiliación finalizada ni garantiza una prestación.</p>
-          <Field label="Estado de cobertura"><Select value={valorCobertura} disabled={ocupado} onChange={(e) => setValorCobertura(e.target.value)}>
+          <Field label="Estado de cobertura"><Select value={valoresDetalle.valorCobertura} disabled={ocupado} onChange={(e) => actualizarBorradorDetalle({ valorCobertura: e.target.value })}>
             <option value="">Elegir estado</option><option value="habilitar">Habilitar cobertura</option><option value="deshabilitar">Deshabilitar cobertura</option>
           </Select></Field>
-          <Field label="Motivo de la decisión"><Textarea value={motivoCobertura} maxLength={255} disabled={ocupado} onChange={(e) => setMotivoCobertura(e.target.value)} /></Field>
-          <Button disabled={ocupado || !valorCobertura || !motivoCobertura.trim()} onClick={decidirHabilitacion}>Aplicar decisión de cobertura</Button>
+          <Field label="Motivo de la decisión"><Textarea value={valoresDetalle.motivoCobertura} maxLength={255} disabled={ocupado} onChange={(e) => actualizarBorradorDetalle({ motivoCobertura: e.target.value })} /></Field>
+          <Button disabled={ocupado || !valoresDetalle.valorCobertura || !valoresDetalle.motivoCobertura.trim()} onClick={decidirHabilitacion}>Aplicar decisión de cobertura</Button>
         </section>}
         {operador && <Button variant="secondary" disabled={ocupado} onClick={() => nueva(novedad)}>Registrar rectificación</Button>}
       </div>}

@@ -2745,3 +2745,26 @@ Este corte aporta una operación explícita y trazable, no una nueva política m
 Siguen fuera de alcance reglas temporales, familiares, clínicas, financieras y la
 activación automática de borradores. La aprobación de producto, las pruebas locales,
 la revisión nativa, la publicación y la homologación OSTEL son evidencias distintas.
+
+## Navegación entre ficha, novedades e historial
+
+La lista de novedades conserva en la URL el financiador seleccionado y permite
+compartir o restaurar el filtro por afiliado, estado, página y novedad seleccionada.
+Los cambios de afiliado o estado reinician la página; cambiar de afiliado limpia
+la novedad seleccionada. Cerrar o limpiar el contexto no altera la evidencia.
+El listado sigue usando el filtro de afiliado existente en la API. Una URL directa
+sin filtros continúa siendo válida.
+
+La ficha actual ofrece un acceso a las novedades de ese afiliado. El historial,
+cuando recibe contexto de financiador y afiliado, enlaza cada evento de origen
+novedad con su antecedente exacto. La vista de una decisión conciliada permite
+volver a la ficha actual o al historial del afiliado. Sin contexto opcional, el
+componente compartido conserva su presentación anterior.
+
+Los identificadores inválidos se muestran como estado seguro; una novedad de otro
+financiador no muestra su evidencia. Cambiar de financiador mantiene separadas las
+consultas y evita que una respuesta pendiente del contexto anterior repueble la
+lista. Navegar mediante estos enlaces sólo cambia la URL y realiza lecturas; no
+concede autoridad ni ejecuta `POST`. Después de una decisión de cobertura, la UI
+invalida tanto la consulta organizacional como la del financiador, igual que la
+actualización administrativa del padrón.
