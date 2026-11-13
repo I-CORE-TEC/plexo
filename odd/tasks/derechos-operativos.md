@@ -1,5 +1,5 @@
 # Derechos operativos: plan de implementación
-Objetivo: dar a Derechos una función real dentro del circuito del financiador, sin duplicar operaciones existentes ni inventar política asistencial. Estado: primer corte cerrado/publicado; continuación manual por persona planificada por Astra, desarrollo delegado.
+Objetivo: dar a Derechos una función real dentro del circuito del financiador, sin duplicar operaciones existentes ni inventar política asistencial. Estado: primer corte publicado; continuación manual implementada, verificada y revisada localmente; runtime manual bloqueado, L38.
 Rama integradora: `juanikitro/DERECHOS`; base: `65ef9c8ad8b93b7b959033d1d722b63350444537`. Estrategia: `feature-branch-chain`; push autorizado y verificado en L23. Runners: Django aislado, PostgreSQL dedicado para concurrencia y Playwright contra entorno ficticio propio.
 
 ## Specs
@@ -27,8 +27,8 @@ Rama integradora: `juanikitro/DERECHOS`; base: `65ef9c8ad8b93b7b959033d1d722b633
 - T7 | S9,S4-S6 | delegated, sesión Astra solicitada | COMPLETO: handoff `msg_af389c7fddc6`, worker_done succeeded; spot check del padre confirma brecha de navegación | L26; sin source writes.
 - T8a | S3-S6,S9 | delegated, usuario solicita desarrollo delegado, unidad coherente U1 | COMPLETO LOCALMENTE: commit `584e172`, U1-B1 y revisión nativa cerrados L28/L30 | Risk: item 3; sin publicación ni aceptación humana.
 - T8b | S3-S6,S9 | delegated, mismo escritor secuencial, U2 depende de U1 | COMPLETO LOCALMENTE: commit `8df5686`, verificación y revisión nativa cerradas L32/L34 | Risk: items 2/3; sin publicación ni aceptación humana.
-- T8c | S9 | delegated, mismo escritor secuencial, U3 depende de U2 | PENDIENTE: escenarios manuales sintéticos y guía local | Sin credenciales ni manifiestos versionados.
-- T9 | S9 | verificación independiente por contrato compartido; preparación manual del padre | PENDIENTE: pruebas y acceso local reproducibles | Sin datos reales, demo 8230 ni Issues-3; lanzamiento persistente sigue bloqueado, no eludirlo.
+- T8c | S9 | delegated, Luna high, U3 depende de U2 | COMPLETO LOCALMENTE: `5f6572a`, B1/B2 corregidos y recheck aprobado; revisión nativa reconocida/consumida L38 | Sin credenciales ni manifiestos versionados ni publicación nueva.
+- T9 | S9 | verificación independiente por contrato compartido; preparación manual del padre | BLOQUEADO POR RUNTIME: guía/fixture preparados, PG ahora detenido; regenerar datos al disponer de arranque permitido | Manifest73/74 histórico, no disponibilidad actual acreditada; sin demo ni aceptación humana.
 
 ## Log
 
@@ -51,81 +51,42 @@ Reintento solicitado tras interrupción de Computer Use: «intentalo nuevamente�
 - No apareció AGENTS.md en raíz ni ancestros. Se conservan las instrucciones suministradas por el usuario. Se inicializó un índice CodeGraph propio; no se copió el índice de Issues-3.
 - El nuevo árbol no contiene `.atl/skill-registry.md`; se reutilizaron rutas exactas del registro inspeccionado en la sesión anterior, sin atribuirle instrucciones locales nuevas.
 
-### L4 — Revisión crítica: qué cambia respecto de la propuesta anterior
+### L4 — Revisión crítica histórica
 
-**Corrección principal:** una resolución humana genérica no es, por sí sola, una nueva capacidad. La habilitación manual ya funciona desde la ficha.
-
-| Evidencia actual | Consecuencia para el diseño |
-| --- | --- |
-| `frontend/src/components/financiadores/padronCampos.js:10-17` y `FichaPadronAdministrativa.jsx:50-65`: habilitación editable con motivo e historial | No crear otro interruptor con un nombre nuevo. |
-| `backend/apps/financiadores/padron.py:189-255`: permiso, locks, revisión, validación y registro | Reutilizar `editar_ficha`, no escribir Afiliado por una vía paralela. |
-| `backend/apps/financiadores/vigencias.py:120-152`: finalizar ahora/reactivar desde hoy | No confundir estas operaciones con fechas asistenciales futuras, retroactivas o gracia. |
-| `backend/apps/financiadores/models.py:266-278` y `padron.py:120-126`: historial con origen y referencia a Importacion | Investigar la reutilización de trazabilidad antes de agregar una entidad DecisionDerechos. |
-| `backend/apps/financiadores/novedades.py:95-121`: conciliación sin efectos | Mantener intacto el contrato existente; una nueva acción tendría que ser distinta y explícita. |
-| `backend/apps/financiadores/cobertura.py:111-189` y `autorizaciones.py:137-151`: consumidores de la habilitación existente | Un primer enlace al booleano actual no necesita reescribir el motor de cobertura. |
-| `backend/apps/financiadores/test_habilitacion_cobertura.py:42-75`: no retroactividad y compromisos anteriores | Mantener estos invariantes; el estado actual no sustituye la evidencia histórica. |
-
-La propuesta de una consulta común de derechos sigue siendo un posible destino, no una refactorización obligatoria ahora. Selección, solicitud, reenvío, reserva y hecho histórico tienen cortes temporales diferentes. Una última decisión global no debe reemplazarlos indiscriminadamente.
+La habilitación manual ya existía en la ficha. La capacidad nueva debía enlazar
+evidencia y decisión, no duplicar el interruptor ni crear otra entidad de derechos.
+Reutilizar editar_ficha, permisos, revisión e historial; conservar compromisos
+anteriores y los distintos cortes temporales de consumidores. Mapa original
+completo con file:line en este mismo archivo del commit `db0ca6a`, L4.
 
 ### L5 — Evidencia de negocio y límites vigentes
 
-Fuentes leídas en GitHub durante esta sesión: [#141](https://github.com/Mkdir-arg/SistemaDeSalud/issues/141), [#143](https://github.com/Mkdir-arg/SistemaDeSalud/issues/143), [#216](https://github.com/Mkdir-arg/SistemaDeSalud/issues/216), [#219](https://github.com/Mkdir-arg/SistemaDeSalud/issues/219), [#215](https://github.com/Mkdir-arg/SistemaDeSalud/issues/215), [#144](https://github.com/Mkdir-arg/SistemaDeSalud/issues/144) y [#145](https://github.com/Mkdir-arg/SistemaDeSalud/issues/145).
+Issues leídos: [#141](https://github.com/Mkdir-arg/SistemaDeSalud/issues/141),
+[#143](https://github.com/Mkdir-arg/SistemaDeSalud/issues/143), #216, #219, #215,
+#144 y #145. Aclaraciones 06/11 y 11/11 distinguen fechas administrativas sin
+establecer corte médico. No usar deuda declarada, parentesco, ausencia en lote,
+plazos simulados ni aprobación del nombre/UI como autorización clínica.
+La primera regla automática, evidencia, efectos temporales y autoridad siguen
+pendientes. Mapa original completo en `db0ca6a`, L5; evidencia más reciente L26.
 
-- Existe necesidad documentada de distinguir hechos administrativos, derechos, plan y autorización; no prueba de que OSTEL requiriera un módulo autónomo de borradores.
-- Las respuestas del 06/11 y notas del 11/11 aclararon FECING/FECBAJ frente a FECHA_A, FECVTO y MOTIVO. No equivalen a una política asistencial completa ni fijan un corte de cobertura.
-- Continúan sin acordar la primera regla operativa, efectos, autoridad, evidencia, excepciones y tratamiento temporal. La firma humana no reemplaza esas definiciones.
-- Cobranza declarada no equivale a saldo conciliado. No usar facturas, deuda informada, parentesco, ausencia en lote o un plazo simulado como disparador automático.
-- La aprobación previa del nombre y del diseño visual no autoriza efectos médicos. Las decisiones no resueltas no se convierten en requisitos por incluirlas aquí.
+### L6 — Candidata histórica luego aprobada y entregada
 
-### L6 — Primera entrega candidata: integración explícita de una novedad
+La propuesta «novedad revisada → cambio explícito de cobertura → historial
+enlazado» fue aprobada en L12 y entregada en L17-L23. Conciliar no aplica efectos;
+habilitar no reactiva una afiliación finalizada ni anticipa una futura.
+Identidad/permiso/revisión, idempotencia, no-op, conflicto y rectificación forman
+el contrato verificado. No equivale a gracia, mora ni activación de borradores.
+Diagrama y propuesta original completos en `db0ca6a`, L6; ya no son un gate pendiente.
 
-**Propuesta pendiente de aceptación, no alcance ya elegido.** Agregar una acción separada desde una novedad revisada para habilitar/deshabilitar inmediatamente la cobertura existente, conservando las atribuciones actuales y enlazando el antecedente al historial.
+### L7 — Diseño histórico conservado en la entrega
 
-Su valor diferencial sería la trazabilidad del recorrido completo; no una nueva decisión legal ni la activación de las reglas de borrador. Es una primera pieza útil, pero no completa gracia, mora ni cambios de alcance por régimen.
-
-```mermaid
-flowchart LR
-    N[Novedad revisada] --> A[PROPUESTO: acción explícita separada]
-    A --> V[Validar identidad, permiso y revisión]
-    V --> E[editar_ficha existente]
-    E --> H[Historial con antecedente]
-    E --> C[Nuevas evaluaciones con habilitación actual]
-    R[Conciliar existente] --> S[Sin efectos prestacionales]
-    P[Compromisos históricos] --> I[Conservar evidencia original]
-```
-
-Contrato a cerrar antes de T3:
-
-1. Confirmar que este recorrido es la primera capacidad deseada y qué estado de revisión habilita la acción. Conciliar no equivale a aprobar derechos.
-2. Mantener la acción inmediata y explícita, sin escoger el valor a partir del código del movimiento. Habilitar no reactiva una afiliación finalizada ni anticipa una futura.
-3. Reutilizar el permiso actual de edición del padrón, sin ampliar acceso clínico ni modificar roles por inferencia.
-4. Definir reintento, resultado incierto, no-op, conflicto y rectificación. El control de revisión por sí solo no acredita idempotencia. No guardar una referencia estructural solo como texto dentro del motivo.
-5. Conservar al menos evidencia de antecedente, valores anterior/nuevo y autor real; evitar que una edición posterior de la novedad reescriba el fundamento de una operación pasada.
-
-No aprobar estos puntos por omisión. Si el usuario necesita una regla automática como primer resultado, sustituir esta candidata por un caso concreto de T5, no construirla como relleno.
-
-### L7 — Diseño técnico y límites de la unidad candidata
-
-Reutilizar `editar_ficha`, `comprobar_revision`, `requerir_financiador`, `registrar_historial` y `autor_real`. Verificar que la novedad, su afiliado y la organización coincidan. Revisar el orden de locks con el circuito de novedades antes de agregar una transacción compuesta.
-
-La relación `HistorialAfiliacion.lote` con `Importacion` es un punto de reutilización plausible, no una decisión de esquema cerrada. Validar su serialización, presentación y estabilidad frente a rectificaciones antes de adoptarla. Si resulta insuficiente, plantear la diferencia necesaria, no sobrecargar silenciosamente el contrato.
-
-Superficies candidatas para el único escritor vertical, todavía no asignadas:
-
-```text
-backend/apps/financiadores/novedades.py
-backend/apps/financiadores/novedades_api.py
-backend/apps/financiadores/test_novedades.py
-backend/apps/financiadores/test_habilitacion_cobertura.py
-frontend/src/pages/financiadores/NovedadesFinanciador.jsx
-frontend/src/components/financiadores/HistorialPadron.jsx
-frontend/e2e/novedades-real.spec.js
-frontend/e2e/fixtures/preparar_novedades_real.py
-frontend/playwright.derechos-real.config.js
-docs/funcionalidades/financiadores-cobertura/ostel-aceptacion.md
-```
-
-No autorizar por defecto modelos/migraciones, permisos, familias, importadores, reglas de cobertura, borradores ni motor financiero. El padre debe revisar cualquier ampliación. `NovedadesFinanciador.jsx` también está siendo modificado en Issues-3: no copiar su trabajo pendiente. Reconciliar la versión publicada antes de integrar ramas.
+Se reutilizaron editar_ficha, comprobar_revision, requerir_financiador,
+registrar_historial y autor_real. HistorialAfiliacion.lote conserva el antecedente
+sin nuevo esquema. Las verificaciones y correcciones de la implementación
+prevalecen sobre hipótesis originales, conservadas completas en `db0ca6a`, L7.
+No modificar modelos, familias, importadores, cobertura ni finanzas por inferencia;
+no copiar cambios pendientes de Issues-3. U3 sólo tiene las tres superficies de
+fixture/E2E/guía delegadas, no las antiguas candidatas del primer corte.
 
 ### L8 — Verificación prevista originalmente; evidencia posterior en L15–L22
 
@@ -468,31 +429,18 @@ U1 cerrado localmente; continúan U2/T8b y U3/T8c, sin pedir aprobación genéri
 U2 conserva el único formulario de Novedades, permisos y URL heredada de borradores;
 no automatiza elegibilidad ni convierte metadatos en derechos activos.
 
-### L31 — Dependencia de fixture futuro adelantada para verificar U2
+### L31 — Escenarios de fixture adelantados para verificar U2
 
-Rama U2 `juanikitro/DERECHOS-05-operativo`, base `170ab58`. El API público de
-alta de padrón rechaza desde futuro con400: «La vigencia del padrón debe ser una
-fecha actual o anterior.» La ausencia de ese escenario en manifest no prueba
-la UI futura. El padre adelanta de U3 sólo su preparación y amplía la superficie
-a `frontend/e2e/fixtures/preparar_novedades_real.py`: persona sintética futura
-con cobertura=true e IDs adicionales por viewport; claves previas y guards
-localhost/DB/TEMP/manifest nuevo intactos. Sólo datos ficticios propios. Fecha
-relativa es escenario de prueba, no regla ni plazo normativo. Finalizada se
-prepara con API pública. Recheck focal futuro/finalizado, sin nueva suite amplia.
-El resto del conjunto manual U3 permanece pendiente. No requiere decisión médica.
-
-El padre añadió después a la misma superficie una cuenta ficticia sin membresías
-para probar acceso negativo a Derechos/Borradores; ningún guard ni cuenta previa
-se modifica. Manifest privado nuevo. El primer documento futuro alfanumérico no
-coincidía con su normalización: se corrigió el dato, conservando número alfanumérico
-DISTINTO del documento numérico. Se comprobó búsqueda por documento real soportada;
-no se ocultó la prueba igualando artificialmente documento y número.
-U2: unit15/build aprobados; suite24/24 antes de últimas ampliaciones; focal de
-recorrido/auditor4/4 y futuro/finalizado/sin-membresía4/4 posteriores. No se afirma
-suite final única verde. Diferencial de menú por roles aprobado; falta comparar
-UI de URL heredada con baseline. Padre confirmó unit15 y diffcheck. CodeGraph
-devolvió Transport closed; se usaron lecturas acotadas sin fingir índice actualizado.
-Sin listeners8231/5179 al cierre del escritor; no demo/aceptación humana.
+Historia completa en este archivo del commit `db0ca6a`, L31. El alta pública
+rechaza desde futuro con400: «La vigencia del padrón debe ser una fecha actual o anterior.»
+Se añadió sólo en fixture aislado persona futura cobertura=true; finalizar usa API.
+Se agregó cuenta sin membresía y se preservaron claves/guards. Documento numérico
+DISTINTO de numero alfanumérico: la búsqueda por documento funciona; la prueba inicial
+usaba dato alfanumérico incompatible con normalización, no un defecto de búsqueda.
+U2 unit15/build aprobados; suite24 antes de últimas ampliaciones; focal4+4 después.
+No afirmar suite final única verde. Padre unit15/diffcheck; CodeGraph Transport
+closed, fallback acotado. URL heredada pendiente entonces, resuelta en L32.
+Sin listeners8231/5179; no demo ni aceptación humana, ni política médica nueva.
 
 ### L32 — U2 verificado independientemente; cierre local pendiente
 
@@ -542,3 +490,84 @@ para decidir/aplicado/sin cambios/conflicto/futuro/finalizado/histórico descono
 operador y auditor locales, enlaces y resultados esperados. Conservar guards y
 claves previas del fixture. No nuevos modelos/servicios ni políticas. La guía debe
 separar archivos/datos preparados de servidores activos y aceptación humana.
+
+### L35 — Recuperación después del reinicio de Orca
+
+> Orca restarted. Resume the original unfinished user task with existing commitments and authorization. Check what's completed or still running before repeating actions. Recover needed interrupted work, re-ask only necessary unanswered questions, and continue until done or genuinely blocked.
+
+Sin agentes anteriores activos al consultar el runtime. HEAD `db0ca6a`, rama06;
+sólo fixture parcial y task record modificados, .atl intacto. Sin listeners8231/5179;
+PG propio confirmado por ID. Se retoma U3 con Luna high como único escritor,
+preservando el diff y recuperando evidencia TEMP antes de repetir pruebas.
+U1/U2 y sus revisiones consumidas no se reabren. Los logs históricos L4-L7 se
+condensan con referencia a su versión íntegra comprometida para mantener el
+espejo Engram bajo su límite; Specs, citas del usuario y decisiones vigentes intactas.
+
+### L36 — U3 implementado; verificación independiente exige una corrección
+
+Tres superficies autorizadas, 450 líneas authored. Writer: unit15; manual8 y
+no-op2; suite final estándar30 aprobadas/6 manuales omitidas deliberadamente.
+No afirmar36 verdes; las manuales se probaron aparte. Padre repitió unit15.
+Dataset manual final privado creado al terminar: TEMP/derechos-u3-manual-final-d97439bc6db842f498fc8b39fa04438c/manual.json;
+organizaciones73/74, no usarlo en automatización ni publicar sus credenciales.
+
+Verificador Sol: diferencial CLI estándar y respuestas públicas equivalentes;
+guards mantienen hash DB/bytes; browser manual10 desktop/móvil/teclado sin skips;
+conflicto400 no cambia estado. GET ficha genera auditoría: medir POST antes de GET.
+B1: fallo normal al escribir manifiesto bajo un padre TEMP inexistente revierte
+DB en baseline db0ca6a pero deja filas en candidato: transaction.atomic terminó
+antes de la escritura. B2: guía confunde rechazo runtime con falta de autorización.
+Se envió una única corrección conjunta: transacción completa+regresión CLI y texto
+de guía; después sólo recheck de B1/B2. Risk: item3, contrato compartido del fixture.
+Evidencia: TEMP/derechos-u3-verify-ca329d3c5d7b462cbae23727300e025d, atomicity.json,
+standard-differential.json, guards.json, conflict-invariants.json, browser.log.
+No listeners8231/5179; PG propio y dataset final intactos. Scratch contiene junction
+node_modules; no limpiar recursivamente. Assessment padre high por item3; .atl
+excluido explícitamente. No revisión nativa iniciada ni publicación/aceptación humana.
+
+### L37 — U3 corregido y comprometido; elección de revisión pendiente
+
+Una única corrección B1/B2: transacción exterior cubre datos estándar/manuales y
+escritura de manifiesto; guía distingue runtime de autorización. Regresión CLI:
+RED ambos modos dejaban filas; GREEN ambos rechazos conservan hash completo DB.
+Smoke de éxito estándar/manual aprobado. Recheck independiente en snapshot nuevo:
+baseline estándar, candidato estándar y manual: exit1/FileNotFoundError, sin archivo,
+sin filas ni cambio de hash. B2 confirmado por readback. No otro barrido ni suite
+completa tras corrección: prueba focal y recheck limitado, conforme al límite acordado.
+Padre repitió node--check/diffcheck. Los datos huérfanos de RED son sintéticos y
+quedan conservados: no había autorización para limpiar. Dataset final73/74 intacto.
+Evidencia recheck en scratch L36/recheck-a6bc29624b2a4c68ba619ec86b238340.
+
+Commit `5f6572a720c703cc71d8673ca517aa0fd2da3ac1`, base `db0ca6a`, tres archivos,
+572 líneas authored. Unidad coherente fixture/pruebas/guía; tras una pasada de
+división se conserva íntegra y se recomienda size:exception para eventual PR,
+sin comprimir código ni separar regresiones. Risk: item3. Sin push ni PR.
+Assessment high, revisión debida; START exacto devolvió consentimiento v3.
+Sobre íntegro e invocaciones EXACTAS en Engram#3420, reviews/derechos-u3-manual.
+Lineage `review-baf911b930a820fa`; target
+`sha256:23e818476c7db42f2945f060f52aff113a7ba568f1d37364889546a8739bed60`.
+Esperar una nueva elección granted/declined; no ejecutar por aprobación de U2.
+Después cerrar registro y entregar acceso privado/instrucciones, sin fingir
+servidores vivos, publicación ni aceptación humana. T5 sigue fuera de alcance.
+
+### L38 — Revisión U3 cerrada; runtime detenido, 13/11/2026
+
+> 1
+
+Grant exacto aplicado una vez al consentimiento L37. Cuatro captures concurrentes
+inspeccionaron patches inmutables, sin hallazgos ni ejecución de pruebas.
+Acknowledge-approved exacto confirmó action=acknowledged, authority=burned,
+lineage/target L37, revisión consumida
+`sha256:11c17d7f0ccf354d02e0101c561fddb2df5633785b8078aba6f8f0576cb4a184`.
+Engram#3420 conserva el sobre sólo como historia; no reutilizarlo ni volver a STATUS.
+
+Readback actual: contenedor propio de L15, ID intacto, estado exited/código255,
+FinishedAt=2026-11-13T12:00:00.410271899Z; datos en tmpfs /var/lib/postgresql/data,
+sin mounts persistentes. Sin listeners54697/8231/5179. El JSON privado sigue en
+TEMP, pero no acredita datos disponibles: NO presentar org73/74 como prueba lista.
+No se arrancó ni limpió nada, ni se eludió el rechazo previo. Para prueba humana
+falta arranque local permitido, inicializar base de prueba y regenerar fixture
+manual antes de levantar API/Vite. No hay decisión médica pendiente para ese paso.
+Código U1-U3 completo/revisado; T9 sigue bloqueado, T5 fuera de alcance. No push,
+PR, merge, deploy ni aceptación humana. Guía de ejecución existente en
+docs/funcionalidades/financiadores-cobertura/ostel-prueba-local.md.
