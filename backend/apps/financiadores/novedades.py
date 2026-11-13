@@ -61,12 +61,20 @@ def presentar(obj):
             "creado": obj.creado, "efectos_aplicados": False,
             "habilitacion_cobertura": ({k: v for k, v in operacion.items()
                                         if k != "decision_huella"} if operacion else None),
+            "rectificaciones": list(Importacion.objects.filter(
+                financiador=obj.financiador_id, tipo=TIPO, version=VERSION,
+                filas__0__original__rectifica=obj.pk,
+            ).exclude(pk=obj.pk).order_by("pk").values_list("pk", flat=True)[:100]),
             **comparar(obj)}
 
 
 def resumir(obj):
+    operacion = obj.filas[0].get("habilitacion_cobertura")
     return {"id": obj.pk, "estado": obj.estado, "creado": obj.creado,
-            "original": obj.filas[0]["original"], "efectos_aplicados": False}
+            "original": obj.filas[0]["original"], "efectos_aplicados": False,
+            "habilitacion_cobertura": ({k: operacion[k] for k in (
+                "resultado", "cobertura_habilitada", "registrado",
+            )} if operacion else None)}
 
 
 @transaction.atomic

@@ -7,9 +7,26 @@ import { errorFinanciador, filasDe, rutaFinanciador } from "@/api/financiadores"
 import { Button, Card, Checkbox, Field, Input, Modal, Select, Spinner, Textarea } from "@/components/ui";
 import { buildRightsAffiliateUrl, parseRightsNavigation, updateRightsNavigation } from "@/lib/derechosNavigation";
 
-const ESTADOS = { pendiente: "Pendiente", conciliada: "Conciliada sin aplicación", descartada: "Descartada" };
+const ESTADOS = { pendiente: "Pendiente", conciliada: "Conciliada", descartada: "Descartada" };
 const CONFLICTOS = { padron_modificado: "El padrón cambió desde el registro de la propuesta.", referencia_repetida: "La fuente y referencia coinciden con otra propuesta. No se eligió una ganadora." };
 const AVISO = "Registrar o conciliar evidencia no modifica el padrón, la vigencia ni los derechos.";
+
+function estadoDecision(novedad) {
+  const decision = novedad.habilitacion_cobertura;
+  if (decision === undefined) return "Consultar decisión en el detalle";
+  if (!decision) return "Sin decisión registrada";
+  return `${decision.resultado === "cambiada" ? "Aplicada" : "Sin cambios"} · ${decision.cobertura_habilitada ? "Habilitada" : "Deshabilitada"}`;
+}
+
+function siguientePaso(novedad, operador) {
+  if (novedad.habilitacion_cobertura) return "La decisión ya está registrada. Consulta el historial y la ficha para conocer la situación actual; no se aplica otra decisión sobre esta novedad.";
+  if (!operador) return "Puedes consultar la evidencia y el historial. Las decisiones corresponden a un operador autorizado.";
+  if (novedad.rectificaciones?.length) return "Esta novedad fue rectificada. Revisa la propuesta posterior; este antecedente no permite decidir cobertura.";
+  if (novedad.estado === "descartada") return "La propuesta está descartada y no permite decidir cobertura. Si hay evidencia nueva, registra una rectificación sin borrar el antecedente.";
+  if (novedad.estado === "pendiente") return "Revisa la evidencia y las diferencias antes de conciliar o descartar con un motivo. Conciliar no obliga a cambiar la cobertura.";
+  if (novedad.conflictos.length) return `${novedad.conflictos.map((c) => CONFLICTOS[c] || c).join(" ")} Revisa la ficha y las propuestas relacionadas. Confirmar un conflicto al conciliar no lo elimina ni habilita una decisión de cobertura.`;
+  return "Puedes registrar una decisión explícita de cobertura si cuentas con respaldo suficiente. Si falta un criterio confirmado, conserva la novedad sin decisión; no deduzcas el resultado de fechas o códigos.";
+}
 
 function vacia() {
   return { clave: crypto.randomUUID(), afiliado: "", fuente: "", referencia: "", codigo: "",
@@ -52,6 +69,7 @@ export default function NovedadesFinanciador({ organizacion, scope, operador, pe
     gcTime: 0, queryFn: () => api.get(`${base}${seleccion}/`) });
   const novedadAjen = detalle.data && afiliado != null && Number(detalle.data.original?.afiliado) !== afiliado;
   const novedad = novedadAjen ? null : detalle.data;
+  const coberturaBloqueada = novedad && (novedad.conflictos.length > 0 || novedad.rectificaciones?.length > 0);
 
   function cambiarNavegacion(cambios, opciones) {
     setParametros(updateRightsNavigation(contexto, personaFija ? { ...cambios, affiliateId: personaFija.id } : cambios), opciones);
@@ -128,8 +146,9 @@ export default function NovedadesFinanciador({ organizacion, scope, operador, pe
   return <div className="space-y-4">
     <p role="note" className="rounded-lg border border-division bg-superficie-2 p-4 text-sm">{AVISO}</p>
     <details className="rounded-lg border border-division p-3 text-sm">
-      <summary className="cursor-pointer font-semibold">Deuda OSTEL: efectos no habilitados</summary>
-      <p className="mt-2">No se interpretan fechas o causales como cortes prestacionales, ni se aplican bajas, reingresos, gracia, mora o cambios de plan automáticamente. No se propagan efectos a familias, atención o dinero. Esas conductas requieren reglas validadas; no impiden revisar evidencia administrativa.</p>
+      <summary className="cursor-pointer font-semibold">Gestión manual de novedades</summary>
+      <p className="mt-2">Registra evidencia, revisa diferencias y concilia o descarta la propuesta. Un operador autorizado puede decidir la habilitación de cobertura con motivo e historial, cuando corresponda.</p>
+      <p className="mt-2">Las fechas y causales no generan cambios automáticos. Las bajas, reingresos, gracia, mora, cambios de plan y efectos en familias, atención o dinero requieren reglas validadas. Las reglas automáticas de OSTEL siguen pendientes de validación.</p>
     </details>
     <div className="flex flex-wrap items-end justify-between gap-3">
       <Field label="Estado de la novedad"><Select value={estado} onChange={(e) => cambiarNavegacion({ status: e.target.value, page: null, noveltyId: null })}>
@@ -147,7 +166,8 @@ export default function NovedadesFinanciador({ organizacion, scope, operador, pe
       <ul aria-label="Novedades registradas" className="space-y-3">{filasDe(listado.data).map((item) => <li key={item.id}>
         <Card><div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1 break-words"><p className="font-semibold">{item.original.fuente} · {item.original.referencia || "Sin referencia externa"}</p>
-            <p className="mt-1 text-sm text-texto-suave">#{item.id} · {ESTADOS[item.estado]} · {item.original.codigo || "Sin código informado"}</p></div>
+            <p className="mt-1 text-sm text-texto-suave">#{item.id} · Evidencia: {ESTADOS[item.estado]} · {item.original.codigo || "Sin código informado"}</p>
+            <p className="mt-1 text-sm">Decisión registrada: <span>{estadoDecision(item)}</span></p></div>
           <Button variant="secondary" onClick={() => abrir(item.id)} aria-label={`Ver novedad ${item.id}`}>Ver detalle</Button>
         </div></Card>
       </li>)}</ul>
@@ -163,7 +183,16 @@ export default function NovedadesFinanciador({ organizacion, scope, operador, pe
     {seleccion != null && createPortal(<Modal title={`Novedad #${seleccion}`} width={860}
       onClose={ocupado ? undefined : cerrar} footer={<Button variant="secondary" disabled={ocupado} onClick={cerrar}>Cerrar</Button>}>
       {navegacion.invalid ? <p role="alert">El identificador de la novedad no es válido.</p> : novedadAjen ? <p role="alert">La novedad no corresponde a la persona seleccionada. No se muestra la evidencia. <Button variant="ghost" onClick={cerrar}>Limpiar selección</Button></p> : detalle.isPending ? <Spinner /> : detalle.error ? <p role="alert">{errorFinanciador(detalle.error)} <Button onClick={actualizar}>Reintentar</Button></p> : novedad && <div className="space-y-4">
-        <p className="font-semibold">{ESTADOS[novedad.estado]}</p><p className="text-sm">{AVISO}</p>
+        <p className="font-semibold">Evidencia: {ESTADOS[novedad.estado]}</p>
+        <p className="text-sm">Decisión registrada: {estadoDecision(novedad)}</p><p className="text-sm">{AVISO}</p>
+        <section aria-label="Siguiente paso" className="rounded-lg bg-superficie-2 p-4 text-sm">
+          <h2 className="font-semibold">Siguiente paso</h2><p className="mt-1">{siguientePaso(novedad, operador)}</p>
+          {novedad.rectificaciones?.map((id) => <Button key={id} variant="ghost" onClick={() => abrir(id)}>Revisar rectificación #{id}</Button>)}
+          {coberturaBloqueada && !novedad.habilitacion_cobertura && <div className="mt-2 flex flex-wrap items-center gap-3">
+            <Link className="font-medium text-accent hover:underline" to={fichaActual}>Revisar ficha actual</Link>
+            {novedad.estado === "conciliada" && <Button variant="secondary" disabled={ocupado} onClick={actualizar}>Actualizar comparación</Button>}
+          </div>}
+        </section>
         <section aria-label="Evidencia original" className="rounded-lg border border-division p-4">
           <h2 className="mb-2 font-semibold">Evidencia original</h2>
           <dl className="grid gap-2 text-sm sm:grid-cols-2">{[["Fuente", novedad.original.fuente], ["Referencia", novedad.original.referencia],
@@ -199,7 +228,7 @@ export default function NovedadesFinanciador({ organizacion, scope, operador, pe
             <Button variant="secondary" disabled={ocupado || !valoresDetalle.motivo.trim()} onClick={() => decidir("descartar")}>Descartar propuesta</Button>
             <Button variant="ghost" disabled={ocupado} onClick={actualizar}>Actualizar comparación</Button></div>
         </section>}
-        {operador && novedad.estado === "conciliada" && !novedad.habilitacion_cobertura && <section aria-label="Decisión explícita de cobertura" className="space-y-3 border-t border-division pt-4">
+        {operador && novedad.estado === "conciliada" && !novedad.habilitacion_cobertura && !coberturaBloqueada && <section aria-label="Decisión explícita de cobertura" className="space-y-3 border-t border-division pt-4">
           <h2 className="font-semibold">Decisión de cobertura</h2>
           <p className="text-sm text-texto-suave">Elegí el estado de forma explícita. No se infiere del código o la fecha de la novedad. Habilitar no reactiva una afiliación finalizada ni garantiza una prestación.</p>
           <Field label="Estado de cobertura"><Select value={valoresDetalle.valorCobertura} disabled={ocupado} onChange={(e) => actualizarBorradorDetalle({ valorCobertura: e.target.value })}>
