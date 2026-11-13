@@ -58,12 +58,12 @@ test("sin organización no se muestran secciones operativas", () => {
   assert.ok(menu({ rol: "auditor" }).every((item) => item.to.endsWith("?financiador=7")));
 });
 
-test("Derechos reemplaza a Borradores como entrada operativa para cada miembro", () => {
+test("Derechos vive en la ficha, fuera del menú para cada miembro", () => {
   for (const rol of ["admin", "operador", "auditor"]) {
     const keys = menu({ rol }).map((item) => item.key);
-    assert.ok(keys.includes("derechos"));
+    assert.equal(keys.includes("derechos"), false);
     assert.equal(keys.includes("borradores"), false);
-    assert.ok(menu({ rol }).find((item) => item.key === "derechos").to.endsWith("?financiador=7"));
+    assert.ok(menu({ rol }).find((item) => item.key === "padron").to.endsWith("?financiador=7"));
   }
   assert.equal(menu({ rol: null }).some((item) => item.key === "derechos"), false);
   assert.equal(menu({ rol: "desconocido" }).some((item) => item.key === "derechos"), false);

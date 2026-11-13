@@ -21,7 +21,8 @@ import { NOMBRE_SISTEMA } from "@/lib/marca";
 import FichaPadronAdministrativa from "@/components/financiadores/FichaPadronAdministrativa";
 import TarjetaFicha from "@/components/financiadores/TarjetaFicha";
 import { COLUMNAS_PADRON, derechoAfiliacionPadron, valorColumnaPadron } from "@/components/financiadores/padronTablaEstado";
-import { ROLES, itemsFinanciador } from "./menuFinanciador";
+import DerechosFinanciador from "./DerechosFinanciador";
+import { ROLES, itemsFinanciador, accesoFinanciador } from "./menuFinanciador";
 
 const COLUMNA_DERECHO = COLUMNAS_PADRON.find((columna) => columna.key === "derecho");
 
@@ -198,6 +199,7 @@ function FichaAfiliadoContenido() {
   const pedida = location.hash === "#historia-clinica" ? "historia" : parametros.get("tab");
   const pestanas = [
     { key: "datos", label: "Datos" },
+    { key: "derechos", label: "Derechos" },
     { key: "legajo", label: "Legajo y familia" },
     { key: "cobertura", label: "Cobertura y actividad", cuenta: pendientes.data?.count || null },
     ...(organizacion?.consulta_historia_clinica ? [{ key: "historia", label: "Historia clínica" }] : []),
@@ -206,6 +208,9 @@ function FichaAfiliadoContenido() {
   const tab = pestanas.some((item) => item.key === pedida) ? pedida : "datos";
   function cambiarTab(valor) {
     const nuevos = new URLSearchParams(parametros);
+    if (tab === "derechos" || valor === "derechos") {
+      for (const campo of ["afiliado", "novedad", "estado", "page"]) nuevos.delete(campo);
+    }
     if (valor === "datos") nuevos.delete("tab");
     else nuevos.set("tab", valor);
     setParametros(nuevos, { replace: true });
@@ -234,6 +239,7 @@ function FichaAfiliadoContenido() {
     {organizaciones.isLoading ? <Spinner label="Consultando financiador…" /> : organizaciones.error ? <ErrorFicha error={organizaciones.error} reintentar={organizaciones.refetch} /> : !organizacion ? <Card><EstadoVacio titulo="No tenés acceso al financiador seleccionado" /></Card> : <>
     <div className="overflow-x-auto"><Tabs variant="underline" tabs={pestanas} valor={tab} onChange={cambiarTab} className="min-w-max" /></div>
     <div role="tabpanel" aria-label={pestanas.find((item) => item.key === tab).label} className="space-y-4">
+    {tab === "derechos" && <DerechosFinanciador key={`${id}:${afiliado}`} organizacion={organizacion} usuarioId={user.id} operador={accesoFinanciador(user, organizacion).operador} afiliadoFijo={afiliado} />}
     {tab === "datos" && administrativa("datos")}
     {tab === "legajo" && administrativa("legajo")}
     {tab === "historia" && <HistoriaFinanciador key={`${id}:${afiliado}`} id={id} afiliado={afiliado} scope={scope} />}

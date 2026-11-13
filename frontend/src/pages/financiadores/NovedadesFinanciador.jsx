@@ -20,10 +20,12 @@ function borradorDetalleVacio(identidad) {
   return { identidad, motivo: "", confirmar: false, valorCobertura: "", motivoCobertura: "", error: null };
 }
 
-export default function NovedadesFinanciador({ organizacion, scope, operador }) {
+export default function NovedadesFinanciador({ organizacion, scope, operador, personaFija = null }) {
   const qc = useQueryClient();
   const [parametros, setParametros] = useSearchParams();
-  const navegacion = parseRightsNavigation(parametros);
+  const contexto = new URLSearchParams(parametros);
+  if (personaFija) contexto.set("afiliado", String(personaFija.id));
+  const navegacion = parseRightsNavigation(contexto);
   const { status: estado, page: pagina, noveltyId: seleccion, affiliateId: afiliado } = navegacion;
   const identidadDetalle = JSON.stringify([organizacion.id, afiliado, seleccion]);
   const [formulario, setFormulario] = useState(null);
@@ -52,7 +54,7 @@ export default function NovedadesFinanciador({ organizacion, scope, operador }) 
   const novedad = novedadAjen ? null : detalle.data;
 
   function cambiarNavegacion(cambios, opciones) {
-    setParametros(updateRightsNavigation(parametros, cambios), opciones);
+    setParametros(updateRightsNavigation(contexto, personaFija ? { ...cambios, affiliateId: personaFija.id } : cambios), opciones);
   }
 
   function actualizarBorradorDetalle(cambios) {
@@ -67,15 +69,15 @@ export default function NovedadesFinanciador({ organizacion, scope, operador }) 
   }
   function abrir(id) { cambiarNavegacion({ noveltyId: id }); setErrorFormulario(null); }
   function nueva(antecedente = null) {
-    setPersonaInicial(antecedente?.persona_actual || null);
+    setPersonaInicial(antecedente?.persona_actual || personaFija);
     setFormulario(antecedente ? { ...antecedente.original, clave: crypto.randomUUID(),
-      rectifica: antecedente.id, motivo: "" } : vacia());
+      rectifica: antecedente.id, motivo: "" } : { ...vacia(), afiliado: personaFija?.id ?? "" });
     cambiarNavegacion({ noveltyId: null }); setErrorFormulario(null);
   }
   async function guardar(event) {
     event.preventDefault(); setOcupado(true); setErrorFormulario(null);
     try {
-      const resultado = await api.post(base, { ...formulario, afiliado: Number(formulario.afiliado),
+      const resultado = await api.post(base, { ...formulario, afiliado: Number(personaFija?.id ?? formulario.afiliado),
         fecha_informada: formulario.fecha_informada || null });
       qc.setQueryData([...clave, "detalle", resultado.id], resultado);
       setFormulario(null); abrir(resultado.id);
@@ -107,6 +109,7 @@ export default function NovedadesFinanciador({ organizacion, scope, operador }) 
       limpiarBorradorDetalle();
       await Promise.all([
         qc.invalidateQueries({ queryKey: clave }),
+        qc.invalidateQueries({ queryKey: ["financiadores", scope[1], organizacion.id, "derechos-ficha"] }),
         qc.invalidateQueries({ queryKey: ["financiador", scope[1], organizacion.id] }),
       ]);
     } catch (e) { actualizarBorradorDetalle({ error: e }); } finally { setOcupado(false); }
@@ -136,7 +139,7 @@ export default function NovedadesFinanciador({ organizacion, scope, operador }) 
     </div>
     {afiliado != null && <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-superficie-2 px-3 py-2 text-sm">
       <span>Mostrando novedades de la persona #{afiliado}</span>
-      <Button variant="ghost" size="sm" onClick={limpiarContexto}>Quitar filtro de persona</Button>
+      {!personaFija && <Button variant="ghost" size="sm" onClick={limpiarContexto}>Quitar filtro de persona</Button>}
     </div>}
     {navegacion.invalid && <p role="alert" className="rounded-md bg-badge-error-bg p-3 text-sm text-badge-error-fg">El enlace contiene un identificador inválido. Limpiá el enlace antes de continuar. <Button variant="ghost" onClick={limpiarContexto}>Limpiar enlace</Button></p>}
     {navegacion.invalid ? null : listado.isPending ? <Spinner /> : listado.error ? <p role="alert">{errorFinanciador(listado.error)} <Button variant="secondary" onClick={() => listado.refetch()}>Reintentar</Button></p> : <>
@@ -155,7 +158,7 @@ export default function NovedadesFinanciador({ organizacion, scope, operador }) 
       </nav>
     </>}
     {formulario && operador && createPortal(<FormularioNovedad formulario={formulario} cambiar={setFormulario}
-      personaInicial={personaInicial} basePadron={rutaFinanciador(organizacion.id, "padron")}
+      personaInicial={personaInicial} personaFija={personaFija} basePadron={rutaFinanciador(organizacion.id, "padron")}
       scope={scope} ocupado={ocupado} error={errorFormulario} guardar={guardar} cerrar={() => setFormulario(null)} />, document.body)}
     {seleccion != null && createPortal(<Modal title={`Novedad #${seleccion}`} width={860}
       onClose={ocupado ? undefined : cerrar} footer={<Button variant="secondary" disabled={ocupado} onClick={cerrar}>Cerrar</Button>}>
@@ -211,10 +214,10 @@ export default function NovedadesFinanciador({ organizacion, scope, operador }) 
   </div>;
 }
 
-function FormularioNovedad({ formulario, cambiar, personaInicial, basePadron, scope, ocupado, error, guardar, cerrar }) {
+function FormularioNovedad({ formulario, cambiar, personaInicial, personaFija, basePadron, scope, ocupado, error, guardar, cerrar }) {
   const [busqueda, setBusqueda] = useState(personaInicial?.documento || "");
   const personas = useQuery({ queryKey: [...scope, "novedades-personas", busqueda],
-    enabled: busqueda.trim().length >= 2, gcTime: 0,
+    enabled: !personaFija && busqueda.trim().length >= 2, gcTime: 0,
     queryFn: () => api.get(`${basePadron}?search=${encodeURIComponent(busqueda.trim())}&page_size=20`) });
   const opciones = [...filasDe(personas.data)];
   if (personaInicial && !opciones.some((p) => p.id === personaInicial.id)) opciones.unshift(personaInicial);
@@ -225,9 +228,9 @@ function FormularioNovedad({ formulario, cambiar, personaInicial, basePadron, sc
     <form id="formulario-novedad" onSubmit={guardar} className="space-y-4">
       <p className="text-sm">{AVISO} Los datos originales se conservan; una rectificación crea otra propuesta.</p>
       {error && <p role="alert" className="text-badge-error-fg">{errorFinanciador(error)}</p>}
-      <Field label="Buscar persona por documento o nombre"><Input value={busqueda} maxLength={160} disabled={ocupado || formulario.rectifica != null} onChange={(e) => setBusqueda(e.target.value)} /></Field>
+      <Field label="Buscar persona por documento o nombre"><Input value={busqueda} maxLength={160} disabled={ocupado || Boolean(personaFija) || formulario.rectifica != null} onChange={(e) => setBusqueda(e.target.value)} /></Field>
       {personas.error && <p role="alert">{errorFinanciador(personas.error)}</p>}
-      <Field label="Persona del padrón"><Select {...campo("afiliado")} required disabled={ocupado || formulario.rectifica != null}>
+      <Field label="Persona del padrón"><Select {...campo("afiliado")} required disabled={ocupado || Boolean(personaFija) || formulario.rectifica != null}>
         <option value="">Seleccionar persona</option>{opciones.map((p) => <option key={p.id} value={p.id}>{p.documento} · {p.nombre}</option>)}
       </Select></Field>
       <div className="grid gap-3 sm:grid-cols-2">

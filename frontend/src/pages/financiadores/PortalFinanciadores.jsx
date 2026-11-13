@@ -61,7 +61,7 @@ export default function PortalFinanciadores() {
   // La redirección a Inicio conserva la query completa; los ítems del menú, sólo el financiador.
   const query = parametros.toString() ? `?${parametros}` : "";
   const items = itemsFinanciador({ organizacion, plataforma, sufijo });
-  const actual = items.find((item) => item.key === seccion) || (seccion === "borradores" && puedeAccederBorradoresLegados(organizacion) ? SECCIONES.find((item) => item.key === "borradores") : null);
+  const actual = items.find((item) => item.key === seccion) || (["borradores", "derechos"].includes(seccion) && puedeAccederBorradoresLegados(organizacion) ? SECCIONES.find((item) => item.key === seccion) : null);
   const irAlDirectorio = plataforma && !seleccion && seccion !== "catalogo" && !organizaciones.isLoading && !organizaciones.error;
   useEffect(() => { if (irAlDirectorio && institucion) setInstitucion(null); }, [irAlDirectorio, institucion, setInstitucion]);
   if (irAlDirectorio) return institucion ? null : <Navigate to="/directorio?vista=financiadores" replace />;

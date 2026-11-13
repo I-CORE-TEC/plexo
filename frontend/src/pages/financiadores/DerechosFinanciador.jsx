@@ -19,9 +19,11 @@ function identidadAfiliado(fila) {
   return fila?.id ?? fila?.afiliado ?? fila?.numero ?? null;
 }
 
-export default function DerechosFinanciador({ organizacion, usuarioId, operador }) {
+export default function DerechosFinanciador({ organizacion, usuarioId, operador, afiliadoFijo = null }) {
   const [parametros, setParametros] = useSearchParams();
-  const navegacion = parseRightsNavigation(parametros);
+  const contexto = new URLSearchParams(parametros);
+  if (afiliadoFijo != null) contexto.set("afiliado", String(afiliadoFijo));
+  const navegacion = parseRightsNavigation(contexto);
   const [busqueda, setBusqueda] = useState(parametros.get("buscar") || "");
   const afiliadoId = navegacion.affiliateId;
   const textoBusqueda = parametros.get("buscar") || "";
@@ -30,7 +32,7 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador 
   const scope = ["financiadores", usuarioId, organizacion.id];
   const consulta = useQuery({
     queryKey: [...scope, "derechos-personas", textoBusqueda, pagina],
-    enabled: textoBusqueda.trim().length > 0,
+    enabled: afiliadoFijo == null && textoBusqueda.trim().length > 0,
     queryFn: () => {
       const query = new URLSearchParams({ estado: "todos", page: String(pagina), page_size: "10", search: textoBusqueda.trim() });
       return api.get(`${rutaFinanciador(organizacion.id, "padron")}?${query}`);
@@ -92,12 +94,12 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador 
 
   return <section aria-label="Derechos por persona" className="space-y-5">
     <header className="space-y-2">
-      <h1 className="text-cifra font-bold">Derechos por persona</h1>
-      <p className="text-sm text-texto-suave">Consultá una afiliación y revisá su evidencia administrativa sin inferir reglas nuevas.</p>
+      <h2 className="text-cifra font-bold">Derechos por persona</h2>
+      <p className="text-sm text-texto-suave">Revisá la situación y la evidencia administrativa de esta afiliación. Conciliar evidencia y cambiar la habilitación son decisiones separadas.</p>
       <Link className="text-sm font-semibold text-accent hover:underline" to={`/financiadores/borradores?financiador=${organizacion.id}`}>Borradores de derechos (no operativo)</Link>
     </header>
 
-    <Card className="space-y-4 p-4">
+    {afiliadoFijo == null && <Card className="space-y-4 p-4">
       <form className="flex flex-wrap items-end gap-3" onSubmit={buscar}>
         <div className="min-w-[min(100%,20rem)] flex-1"><Field label="Buscar persona por documento, número o nombre">
           <Input id="derechos-busqueda" value={busqueda} onChange={(event) => setBusqueda(event.target.value)} autoComplete="off" />
@@ -125,7 +127,7 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador 
           </div>
         </> : <p role="status">No se encontraron personas con esos datos.</p>}
       </>}
-    </Card>
+    </Card>}
 
     {afiliadoId != null && <>
       {ficha.isLoading ? <Spinner label="Consultando afiliación…" /> : ficha.error ? <p role="alert">{errorFinanciador(ficha.error)}</p> : !personaExacta ? <p role="alert">No se pudo confirmar la identidad de esta afiliación. Volvé a buscar y seleccioná una persona.</p> : <section aria-label="Situación de afiliación"><Card className="space-y-3 p-4">
@@ -133,10 +135,10 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador 
         <dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-sm text-texto-suave">Clasificación</dt><dd>{ETIQUETAS_DERECHO[clasificacion] || "No clasificada"}</dd></div><div><dt className="text-sm text-texto-suave">Plan</dt><dd>{planes.isLoading ? "Consultando…" : nombrePlan}</dd></div><div><dt className="text-sm text-texto-suave">Cobertura habilitada</dt><dd>{personaExacta.cobertura_habilitada === true ? "Habilitada" : personaExacta.cobertura_habilitada === false ? "Deshabilitada" : "No registrado"}</dd></div></dl>
         {planes.error && <p role="status">No se pudo consultar el nombre del plan. La afiliación mantiene su identificador registrado.</p>}
         <p className="text-sm text-texto-suave">La clasificación y la habilitación no garantizan una prestación ni un pago. También aplican fechas, plan, convenio, reglas del servicio, cupos y autorización.</p>
-        <div className="flex flex-wrap gap-3"><Link className="font-semibold text-accent hover:underline" to={`/financiadores/padron/${afiliadoId}?financiador=${organizacion.id}`}>Ver ficha actual</Link><Link className="font-semibold text-accent hover:underline" to={`/financiadores/reglas?financiador=${organizacion.id}`}>Ver reglas de cobertura</Link>{planId && <Link className="font-semibold text-accent hover:underline" to={`/financiadores/planes?financiador=${organizacion.id}`}>Ver plan</Link>}</div>
+        <div className="flex flex-wrap gap-3">{afiliadoFijo == null && <Link className="font-semibold text-accent hover:underline" to={`/financiadores/padron/${afiliadoId}?financiador=${organizacion.id}`}>Ver ficha actual</Link>}<Link className="font-semibold text-accent hover:underline" to={`/financiadores/reglas?financiador=${organizacion.id}`}>Ver reglas de cobertura</Link>{planId && <Link className="font-semibold text-accent hover:underline" to={`/financiadores/planes?financiador=${organizacion.id}`}>Ver plan</Link>}</div>
       </Card></section>}
-      <div className="flex justify-end"><Button variant="secondary" onClick={() => actualizar({ affiliateId: null, noveltyId: null, status: "", page: 1 })}>Limpiar persona seleccionada</Button></div>
-      {!ficha.isLoading && !ficha.error && personaExacta && <NovedadesFinanciador key={`${organizacion.id}:${afiliadoId}`} organizacion={organizacion} scope={scope} operador={operador} />}
+      {afiliadoFijo == null && <div className="flex justify-end"><Button variant="secondary" onClick={() => actualizar({ affiliateId: null, noveltyId: null, status: "", page: 1 })}>Limpiar persona seleccionada</Button></div>}
+      {!ficha.isLoading && !ficha.error && personaExacta && <NovedadesFinanciador key={`${organizacion.id}:${afiliadoId}`} organizacion={organizacion} scope={scope} operador={operador} personaFija={afiliadoFijo == null ? null : { ...personaExacta, id: afiliadoId }} />}
     </>}
   </section>;
 }

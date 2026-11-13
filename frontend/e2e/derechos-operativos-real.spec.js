@@ -152,7 +152,7 @@ test("operación por persona conserva el alcance y reutiliza la decisión explí
 
   await page.goto(`/financiadores/derechos?financiador=${organizacion.id}`);
   const menu = page.getByRole("navigation", { name: "Menú del financiador" });
-  await expect(menu.getByRole("link", { name: "Derechos", exact: true })).toBeVisible();
+  await expect(menu.getByRole("link", { name: "Derechos", exact: true })).toHaveCount(0);
   await expect(menu.getByRole("link", { name: /Borradores|Reglas de derechos/ })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Derechos por persona", exact: true })).toBeVisible();
 
@@ -183,6 +183,12 @@ test("operación por persona conserva el alcance y reutiliza la decisión explí
     "href", `/financiadores/reglas?financiador=${organizacion.id}`,
   );
   await expect(page.getByText(/no garantizan una prestación ni un pago/i)).toBeVisible();
+
+  // La compatibilidad antigua llega al mismo circuito dentro de la ficha.
+  await page.getByRole("link", { name: "Ver ficha actual", exact: true }).click();
+  await page.getByRole("tab", { name: "Derechos", exact: true }).click();
+  await expect(page.getByRole("tabpanel", { name: "Derechos", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Buscar persona", exact: true })).toHaveCount(0);
 
   await expect(page.getByRole("list", { name: "Novedades registradas" }).getByText(`#${propuesta.id}`, { exact: false })).toBeVisible();
   await page.getByRole("button", { name: `Ver novedad ${propuesta.id}`, exact: true }).click();
@@ -217,7 +223,7 @@ test("Borradores conserva su URL de consulta como configuración secundaria no o
   const propuesta = await crearNovedadConciliada(page, preparacion, organizacion);
   const datos = await autenticar(page, baseURL, "auditor");
   await page.goto(`/financiadores/derechos?financiador=${organizacion.id}`);
-  await expect(page.getByRole("navigation", { name: "Menú del financiador" }).getByRole("link", { name: "Derechos", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Menú del financiador" }).getByRole("link", { name: "Derechos", exact: true })).toHaveCount(0);
   await page.getByLabel("Buscar persona por documento, número o nombre").fill(organizacion.documento);
   await page.getByRole("button", { name: "Buscar persona", exact: true }).click();
   await page.getByRole("button", { name: `Seleccionar afiliado #${organizacion.afiliado}`, exact: true }).click();
