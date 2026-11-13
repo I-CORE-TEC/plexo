@@ -1,5 +1,5 @@
 # Derechos operativos: plan de implementación
-Objetivo: dar a Derechos una función real dentro del circuito del financiador, sin duplicar operaciones existentes ni inventar política asistencial. Estado: primer corte publicado; continuación manual implementada, verificada y revisada localmente; runtime manual bloqueado, L38.
+Objetivo: dar a Derechos una función real dentro del circuito del financiador, sin duplicar operaciones existentes ni inventar política asistencial. Estado: primer corte publicado; continuación manual implementada, verificada y revisada localmente; entorno manual disponible, datos ficticios cargados y guía completa, L40-L41.
 Rama integradora: `juanikitro/DERECHOS`; base: `65ef9c8ad8b93b7b959033d1d722b63350444537`. Estrategia: `feature-branch-chain`; push autorizado y verificado en L23. Runners: Django aislado, PostgreSQL dedicado para concurrencia y Playwright contra entorno ficticio propio.
 
 ## Specs
@@ -15,7 +15,11 @@ Rama integradora: `juanikitro/DERECHOS`; base: `65ef9c8ad8b93b7b959033d1d722b633
 - S9 — «desplega otra sesion para planificar lo faltante para la unidad completa con astra y delega el desarrollo. cuando este todo, dejame todo preparado para probarlo manualmente». Abrir una sesión Astra para identificar faltantes reales, delegar implementación y preparar prueba manual aislada. Preservar el primer corte; no inventar políticas ni confundir automatización con aceptación humana.
   - Alcance implementable de L26: navegación persona/evidencia/historial persistente en URL; entrada Derechos por persona reutilizando decisiones actuales; borradores secundarios y URL anterior compatible; escenarios sintéticos independientes para prueba manual. Actor operador y auditor, escritorio/móvil/teclado. No incluye automatizar T5.
 
+- S10 — «levanta el entorno local para probar, carga todos los datos que necesite para probar y dame una guia de pasos para saber que probar.  no dejes nada fuera de la guia». Preparar entorno y datos sintéticos aislados y guía completa de los recorridos Derechos entregados; no ampliar a reglas automáticas ni datos reales.
+
 ## Tasks
+
+- T10 | S10 | delegated, guía completa solicitada; corrección/readback final inline | COMPLETO LOCALMENTE: `e5f2ec1`, guía, checklist y accesos privados; L41 | Aceptación humana pendiente; sin credenciales versionadas.
 
 - T0 | S1 | inline, CLI/UI de Orca | COMPLETO con alcance actualizado: worktree creado; usuario acepta orquestar desde este chat sin trasladarlo | Registro en `6ae71d2`; L11.
 - T1 | S2,S4-S6 | delegated, mapa acotado + una impugnación independiente de premisa de alto impacto | COMPLETO: revisión estática y este plan | Registro en `6ae71d2`.
@@ -28,7 +32,7 @@ Rama integradora: `juanikitro/DERECHOS`; base: `65ef9c8ad8b93b7b959033d1d722b633
 - T8a | S3-S6,S9 | delegated, usuario solicita desarrollo delegado, unidad coherente U1 | COMPLETO LOCALMENTE: commit `584e172`, U1-B1 y revisión nativa cerrados L28/L30 | Risk: item 3; sin publicación ni aceptación humana.
 - T8b | S3-S6,S9 | delegated, mismo escritor secuencial, U2 depende de U1 | COMPLETO LOCALMENTE: commit `8df5686`, verificación y revisión nativa cerradas L32/L34 | Risk: items 2/3; sin publicación ni aceptación humana.
 - T8c | S9 | delegated, Luna high, U3 depende de U2 | COMPLETO LOCALMENTE: `5f6572a`, B1/B2 corregidos y recheck aprobado; revisión nativa reconocida/consumida L38 | Sin credenciales ni manifiestos versionados ni publicación nueva.
-- T9 | S9 | verificación independiente por contrato compartido; preparación manual del padre | BLOQUEADO POR RUNTIME: guía/fixture preparados, PG ahora detenido; regenerar datos al disponer de arranque permitido | Manifest73/74 histórico, no disponibilidad actual acreditada; sin demo ni aceptación humana.
+- T9 | S9-S10 | inline, recuperación y carga aislada autorizadas | COMPLETO LOCALMENTE: PostgreSQL/API/Vite activos, datos finales separados, navegador visible autenticado | L40; aceptación humana pendiente.
 
 ## Log
 
@@ -160,17 +164,22 @@ La lectura confirmó que archivo y espejo #3084 coinciden. RDD está habilitado 
 
 Esta instrucción sustituye la asignación no disponible del escritor y rechaza la alternativa Astra. Se mantiene el esfuerzo `high` y todo el alcance aprobado en L12. No cambia permisos remotos, política de derechos ni superficies autorizadas.
 
-### L15 — Primera entrega del escritor y prueba pendiente, 12/11/2026
+### L15 — Primera entrega histórica del escritor
 
-El escritor devolvió `partial`: 66 pruebas focales SQLite (4 skips), 15 de concurrencia PostgreSQL, 8 Playwright escritorio/móvil y build Vite aprobados. Suite completa: 876 pruebas, 60 skips, 1 fallo y 3 errores; salida no conservada completa. No atribuirlos a la base sin reproducción. Informó RED por endpoint 404, pero no conservó invocación exacta. No ejecutó diferencial base/candidato ni demostración visible. Las superficies observadas coinciden con L7; no cambió modelos ni migraciones.
+Entrega partial y evidencia original íntegra en este archivo de `8b3cc94`, L15.
+No había prueba diferencial ni demo; el assessment unassessable no era PASS.
+Los resultados iniciales quedan sustituidos por verificación/correcciones L16-L17.
+Sin modelos/migraciones ni datos reales; padre conservó el diff y exigió revisión.
 
-La revisión nativa preliminar devolvió `high`/`unassessable`: exige declarar los dos archivos untracked (config Playwright y este documento). Esto no es PASS ni consentimiento. La operación compone locks de novedad/padrón y afecta permisos/contrato compartido; requiere verificador independiente y reconciliar el alcance contra L12. El padre conserva el diff sin commits. El contenedor de pruebas propio sigue disponible; no usa datos reales ni recursos de Issues-3.
+### L16 — Bloqueadores históricos del primer corte
 
-### L16 — Verificación independiente y único lote de correcciones, 12/11/2026
-
-El verificador `gpt-6.1-sol`/`medium` reprodujo B1: la nueva acción acepta evidencia rectificada o con conflictos actuales; B2: deadlock PostgreSQL con PATCH de padrón por `Financiador FOR UPDATE` y FK de auditoría; B3: UI interpreta booleano histórico ausente como deshabilitado. Corregir exactamente estos grupos y guardar sus probes como pruebas de regresión en las superficies existentes. Mantener replay idempotente antes de rechazar evidencia posteriormente obsoleta. Revisar modo/orden de locks sin reestructurar circuitos ajenos. Mostrar dato histórico no registrado, sin backfill ni modificar snapshots.
-
-La suite completa candidata y base reprodujo los mismos cuatro fallos: manifest estático de admin; dos pruebas PostgreSQL ejecutadas contra SQLite; orden de borradores en historial. No son causados por esta unidad y no se corrigen aquí. El verificador aprobó 15 pruebas PostgreSQL, 8 de navegador, invariantes de permisos/replay y diferencial de APIs previas. La suite completa no está verde. Raíz de evidencia externa: `derechos-verify-da4ea1a235164a90ba2677945de6fc87` bajo TEMP, con logs completos y probes. No copiar manifiestos con credenciales sintéticas al repositorio. Tras corrección, recheck sólo de B1-B3, más spot check del padre. No repetir un barrido nuevo de hallazgos.
+Evidencia íntegra en `8b3cc94`, L16. B1 evidencia rectificada/conflictos aceptados;
+B2 deadlock PostgreSQL FOR UPDATE con FK de auditoría; B3 booleano ausente tratado
+como false. Único lote corregido, conservando replay antes de rechazos posteriores,
+locks no_key y No registrado sin backfill. Recheck y pruebas finales en L17.
+Suite completa base/candidato comparten cuatro fallos preexistentes: staticmanifest
+admin, dos pruebas PG bajoSQLite, orden histórico borradores. No afirmar suiteverde.
+Probes/logs en TEMP/derechos-verify-da4ea1a235164a90ba2677945de6fc87, privados.
 
 ### L17 — Correcciones verificadas y entrega pendiente, 12/11/2026
 
@@ -237,30 +246,14 @@ Integración y publicación posteriores en L23; no alterar esas referencias.
 
 > 1
 
-La respuesta seleccionó «Revisar este cambio» del consentimiento UI. Se ejecutó
-su invocación exacta y las tres capturas nativas en paralelo. Resiliencia,
-legibilidad y fiabilidad no presentaron hallazgos. El cierre aprobó el target de
-L21; su acknowledge-approved exacto devolvió `action=acknowledged` y
-`authority=burned`, lineage `review-3c2407ffcbbc9949`. No se usó corrección nativa
-ni se hizo un STATUS posterior. La revisión inspeccionó patches inmutables: no
-sustituye las pruebas ejecutadas ni la aceptación humana.
+Revisión UI aprobada y consumida: lineage `review-3c2407ffcbbc9949`,
+`action=acknowledged`, `authority=burned`, límite `5996eb54fc1f7cff4580fbbdcaebb1720147a4a9`.
+Tres lentes sin hallazgos sobre patches inmutables; no reemplazan pruebas ni
+aceptación humana. Sin corrección ni STATUS posterior. El 12/11 el runtime negó
+arranque y limpieza antes de ejecutar; no hubo evasión. Fallos baseline de L17
+siguen separados de regresiones. Detalles y rutas históricas íntegros en
+`8b3cc94:odd/tasks/derechos-operativos.md`, L22. Estado actual sustituido por L40.
 
-Límite funcional revisado: `5996eb54fc1f7cff4580fbbdcaebb1720147a4a9`.
-Los cortes locales son plan (231 líneas), API (381) e interfaz (270), más este
-cierre documental pasivo. Todos conservan su dependencia inmediata; la rama
-integradora permanece en la base. No hay push, PR, merge, deploy ni cambios en
-Issues-3. El resultado implementado es la acción explícita desde Novedades,
-no la activación de borradores ni una política automática de derechos.
-
-Limitaciones vigentes: cuatro fallos de suite completa reproducidos también en
-baseline; demo visible bloqueada antes de ejecutar por política del runtime;
-aceptación humana no realizada. El intento final de limpiar los temporales y el
-contenedor propio también fue rechazado antes de ejecutar. No se reintentó con
-otro mecanismo. Por tanto siguen retenidos el contenedor `derechos-novedades-pg`
-(loopback 54697) y las rutas TEMP enumeradas en L15-L17/L20; no hay servidores
-API/Vite de esta tarea en 8231/5179. Conservar o retirar esos recursos requiere
-una operación de limpieza permitida fuera del bloqueo actual. Los directorios
-fueron verificados dentro de TEMP y sin reparse points antes del intento.
 ### L23 — Primer corte publicado y cerrado técnicamente, 12/11/2026
 
 > commitea y pusha el primer corte, documentandolo y cerrandolo para poder seguir con el proximo
@@ -525,30 +518,18 @@ No listeners8231/5179; PG propio y dataset final intactos. Scratch contiene junc
 node_modules; no limpiar recursivamente. Assessment padre high por item3; .atl
 excluido explícitamente. No revisión nativa iniciada ni publicación/aceptación humana.
 
-### L37 — U3 corregido y comprometido; elección de revisión pendiente
+### L37 — U3 corregido y comprometido; consentimiento histórico
 
-Una única corrección B1/B2: transacción exterior cubre datos estándar/manuales y
-escritura de manifiesto; guía distingue runtime de autorización. Regresión CLI:
-RED ambos modos dejaban filas; GREEN ambos rechazos conservan hash completo DB.
-Smoke de éxito estándar/manual aprobado. Recheck independiente en snapshot nuevo:
-baseline estándar, candidato estándar y manual: exit1/FileNotFoundError, sin archivo,
-sin filas ni cambio de hash. B2 confirmado por readback. No otro barrido ni suite
-completa tras corrección: prueba focal y recheck limitado, conforme al límite acordado.
-Padre repitió node--check/diffcheck. Los datos huérfanos de RED son sintéticos y
-quedan conservados: no había autorización para limpiar. Dataset final73/74 intacto.
-Evidencia recheck en scratch L36/recheck-a6bc29624b2a4c68ba619ec86b238340.
-
-Commit `5f6572a720c703cc71d8673ca517aa0fd2da3ac1`, base `db0ca6a`, tres archivos,
-572 líneas authored. Unidad coherente fixture/pruebas/guía; tras una pasada de
-división se conserva íntegra y se recomienda size:exception para eventual PR,
-sin comprimir código ni separar regresiones. Risk: item3. Sin push ni PR.
-Assessment high, revisión debida; START exacto devolvió consentimiento v3.
-Sobre íntegro e invocaciones EXACTAS en Engram#3420, reviews/derechos-u3-manual.
-Lineage `review-baf911b930a820fa`; target
+B1/B2 corregidos una vez: outer transaction conserva filas y manifiesto juntos;
+guía separa denegación runtime de autorización. RED ambos modos dejaban filas;
+GREEN y recheck independiente baseline/estándar/manual: exit1/FileNotFoundError,
+sin archivo ni cambio de hash; éxito normal probado. No suite completa posterior.
+Commit `5f6572a720c703cc71d8673ca517aa0fd2da3ac1`, base `db0ca6a`, 572 líneas,
+fixture/pruebas/guía coherentes, Risk:item3, sin publicación. Detalles íntegros en
+`8b3cc94:odd/tasks/derechos-operativos.md`, L37. Sobre Engram#3420 cerrado L38:
+lineage `review-baf911b930a820fa`, target
 `sha256:23e818476c7db42f2945f060f52aff113a7ba568f1d37364889546a8739bed60`.
-Esperar una nueva elección granted/declined; no ejecutar por aprobación de U2.
-Después cerrar registro y entregar acceso privado/instrucciones, sin fingir
-servidores vivos, publicación ni aceptación humana. T5 sigue fuera de alcance.
+No repetir consentimiento ni STATUS; autoridad consumida. Dataset73/74 histórico.
 
 ### L38 — Revisión U3 cerrada; runtime detenido, 13/11/2026
 
@@ -571,3 +552,52 @@ manual antes de levantar API/Vite. No hay decisión médica pendiente para ese p
 Código U1-U3 completo/revisado; T9 sigue bloqueado, T5 fuera de alcance. No push,
 PR, merge, deploy ni aceptación humana. Guía de ejecución existente en
 docs/funcionalidades/financiadores-cobertura/ostel-prueba-local.md.
+
+### L39 — Arranque local y guía completa solicitados, 13/11/2026
+
+> levanta el entorno local para probar, carga todos los datos que necesite para probar y dame una guia de pasos para saber que probar.  no dejes nada fuera de la guia
+
+S10 amplía T9: usuario solicita explícitamente arranque local, carga ficticia y
+guía exhaustiva del alcance Derechos implementado. Un intento directo permitido;
+si runtime deniega, parar ese arranque, no alternar mecanismos. Preservar Issues-3,
+8230 y .atl; no datos reales, dependencias nuevas, publicación ni política automática.
+Padre prepara entorno propio; Luna documenta todos los recorridos con datos,
+actores, pasos, resultados y límites, identifica datos faltantes sin inventar reglas.
+
+### L40 — Entorno disponible y datos completos, 13/11/2026
+
+S10 permitió un nuevo intento directo: propio PostgreSQL loopback54697 arrancó,
+migraciones aisladas completas y terminales persistentes Orca API8231/Web5179
+activos (health/HTTP200). No se modificó la política ni se eludió una denegación.
+Contenedor `derechos-novedades-pg` mantiene tmpfs: detenerlo pierde estos datos.
+
+TEMP privado `derechos-manual-20261113-62369e1abb2f4794952bd003145b1a31` contiene
+`manual-completo.json`, `ACCESOS.txt`, `DATOS-Y-RUTAS.md`, suplemento guardado
+`completar_datos.py` y datos separados `verificacion-completa.json`. No credenciales
+ni manifiestos en Git. Orgs finales7/8: operadores/auditor/admin, siete escenarios
+base más diez entradas extra por organización, planes ficticios Base/Alternativo,
+reglas100/50%, prestación ficticia y borrador no operativo. Los plazos/porcentajes
+son ejemplos, no política OSTEL. Suplemento valida settings/loopback/DBtest/TEMP,
+usa transacción y servicios/API actuales; no cambió código productivo.
+
+Prueba visible en datos desechables: login operador, conciliar sin cambiar
+cobertura, habilitar expresamente con motivo, historial enlazado y regreso exacto
+a evidencia. Móvil390px sin overflow; Tab dentro de modal y Escape devuelve foco.
+Prueba focal Playwright sobre servidores persistentes: seis casos pasaron sin
+skips, escritorio/móvil, decisión/conflicto/vigencias/historia/auditor. No se
+repitió suite completa ni build para esta carga/documentación. Login API de los
+tres roles finales y lectura planes/reglas200; caso final sigue pendiente/deshabilitado.
+Pestaña Orca visible autenticada: `/financiadores/derechos?financiador=7&afiliado=53`.
+Casos finales no consumidos. No publicación, datos reales ni aceptación humana.
+### L41 — Guía completa y cierre local S10
+
+Guía `e5f2ec1`: actor/datos/pasos/resultados para siete casos base y diez extras,
+registro/descarte/rectificación, decisión/no-op/deshabilitación, historial/fuente,
+URL/paginación/revisión obsoleta, roles/A-B, planes/reglas y Borradores, móvil/teclado.
+Inicio rápido y recuperación separados; accesos sólo archivo privado. Padre
+corrigió rutas extras, filtro de paginación y referencias de evidencia; preservó
+la sección OSTEL anterior. Diffcheck y parse de bloques PowerShell correctos,
+sin secretos. Unidad documental coherente654 líneas, no división artificial.
+Assessment nativo passive/non_executable_only, review_due=false; sin START.
+T9/T10 completos; T5 excluido. Riesgo residual: tmpfs/TEMP desechables, aceptación
+humana pendiente. Risk: none (sin cambios productivos). No push/PR/merge/deploy.
