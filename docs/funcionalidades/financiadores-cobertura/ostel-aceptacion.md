@@ -2671,3 +2671,145 @@ tiene PR propio. Contiene las pruebas G2a de `test_borradores_api.py`,
 `frontend/e2e/borradores-derechos-real.spec.js`, su sección de este documento y el
 avance en `odd/tasks/ostel-operacion-integral.md`. Ni #212 ni #213 lo necesitan.
 Integrarlo o descartarlo es una decisión del usuario y queda abierta.
+
+## Decisión explícita de cobertura desde una novedad — API Derechos
+
+Conciliar conserva su contrato: registra una decisión administrativa y
+`efectos_aplicados` permanece en `false`. La acción separada
+`POST /api/financiadores/{id}/novedades/{novedad_id}/habilitacion-cobertura/`
+recibe `revision`, `revision_padron`, `cobertura_habilitada` y `motivo`.
+El booleano se elige explícitamente; ningún código o fecha informada lo decide.
+Habilitar no reactiva una afiliación finalizada ni garantiza una prestación.
+
+La acción exige novedad conciliada, organización y afiliado coincidentes, permiso
+actual de escritura y ambas revisiones vigentes. Antes de una aplicación nueva,
+rechaza si el padrón cambió desde el snapshot original, la fuente/referencia se
+repite o el antecedente ya fue rectificado. Un rechazo no deja escrituras parciales.
+Reconoce primero el reintento idéntico aplicado: ni una rectificación posterior
+ni una nueva edición del padrón provocan que ese reintento vuelva a aplicar efectos.
+Una solicitud diferente sobre la misma decisión se rechaza.
+
+Reutiliza `editar_ficha` para validación, permisos y auditoría. Cuando cambia el
+booleano, `HistorialAfiliacion.lote` enlaza el evento a la novedad y conserva autor,
+motivo y valores anterior/nuevo. Un no-op devuelve `sin_cambios` sin inventar una
+transición. Rectificar crea otra novedad; no reescribe la evidencia de la original.
+El lock del financiador usa `NO KEY UPDATE`, compatible con el `KEY SHARE` de la
+FK de auditoría durante una edición concurrente del padrón.
+
+Las evaluaciones futuras consumen el booleano existente. No cambian reglas de
+cobertura, fechas, planes, familias, autorizaciones, reservas ni hechos históricos.
+No se agregan modelos ni migraciones. No se activan reglas de borrador.
+
+### Verificación de la API
+
+- Focal final: `test_novedades` y `test_habilitacion_cobertura`, 33 pruebas,
+  resultado OK con 5 skips de concurrencia SQLite; repetido por el orquestador.
+- PostgreSQL 16 dedicado: 15 pruebas iniciales de novedades/padrón; tras corrección,
+  5 de novedades, incluida la concurrencia con PATCH. Recheck independiente del
+  caso: PATCH 200, acción 400, sin deadlock.
+- Probes públicos independientes: conflictos/rectificación rechazados con 400 y
+  hash persistido intacto; replay 200 sin escrituras tras edición y rectificación.
+- Diferencial de APIs previas aprobado, salvo campos opcionales nuevos y timestamps.
+- Suite completa candidata/base: mismos 1 fallo y 3 errores; no está verde.
+  Causas verificadas: manifest estático de admin, dos pruebas PostgreSQL ejecutadas
+  contra SQLite y orden de reglas en historial de borradores. No se corrigen aquí.
+
+## Recorrido visible de Derechos — portal del financiador
+
+Desde el detalle de una novedad conciliada, el operador elige por separado
+habilitar o deshabilitar cobertura e informa el motivo. La pantalla muestra el
+resultado de la operación y permite acceder al historial enlazado con el antecedente.
+La conciliación sola sigue sin aplicar efectos prestacionales. El auditor conserva
+acceso de lectura y no obtiene permisos nuevos para cambiar cobertura.
+
+La presentación histórica distingue tres valores: habilitada, deshabilitada y
+`No registrado` cuando el snapshot anterior no contiene `cobertura_habilitada`.
+No transforma un dato ausente en falso ni lo rellena usando el padrón actual.
+
+### Verificación del recorrido
+
+- `npm run build`: aprobado nuevamente sobre la UI final después de la corrección,
+  sin advertencias en la salida de Vite.
+- `npm run e2e -- --config playwright.derechos-real.config.js`: 10 pruebas finales
+  aprobadas en Chromium escritorio y móvil, con teclado, historial, permisos y
+  snapshot histórico. Los intentos con manifiesto ausente o inválido no son prueba.
+- Recheck independiente del snapshot anterior: muestra `Cobertura: No registrado`.
+- Fixtures exclusivamente sintéticos en base local descartable; servidores propios
+  en 8231/API y 5179/Vite. No se utilizó el entorno compartido de la otra sesión.
+- La preparación de la demo visible fue bloqueada por la política del runtime.
+  Las pruebas automatizadas no equivalen a demostración visible ni aceptación humana.
+
+### Alcance y límites
+
+Este corte aporta una operación explícita y trazable, no una nueva política médica.
+Siguen fuera de alcance reglas temporales, familiares, clínicas, financieras y la
+activación automática de borradores. La aprobación de producto, las pruebas locales,
+la revisión nativa, la publicación y la homologación OSTEL son evidencias distintas.
+
+## Navegación entre ficha, novedades e historial
+
+La lista de novedades conserva en la URL el financiador seleccionado y permite
+compartir o restaurar el filtro por afiliado, estado, página y novedad seleccionada.
+Los cambios de afiliado o estado reinician la página; cambiar de afiliado limpia
+la novedad seleccionada. Cerrar o limpiar el contexto no altera la evidencia.
+El listado sigue usando el filtro de afiliado existente en la API. Una URL directa
+sin filtros continúa siendo válida.
+
+La ficha actual ofrece un acceso a las novedades de ese afiliado. El historial,
+cuando recibe contexto de financiador y afiliado, enlaza cada evento de origen
+novedad con su antecedente exacto. La vista de una decisión conciliada permite
+volver a la ficha actual o al historial del afiliado. Sin contexto opcional, el
+componente compartido conserva su presentación anterior.
+
+Los identificadores inválidos se muestran como estado seguro; una novedad de otro
+financiador no muestra su evidencia. Cambiar de financiador mantiene separadas las
+consultas y evita que una respuesta pendiente del contexto anterior repueble la
+lista. Navegar mediante estos enlaces sólo cambia la URL y realiza lecturas; no
+concede autoridad ni ejecuta `POST`. Después de una decisión de cobertura, la UI
+invalida tanto la consulta organizacional como la del financiador, igual que la
+actualización administrativa del padrón.
+
+## Área de Derechos por persona — U2
+
+La navegación principal del financiador ofrece `Derechos` a los mismos miembros
+administradores, operadores y auditores. La pantalla busca personas mediante el
+endpoint existente del padrón, con `estado=todos`; conserva los filtros de
+documento, número o nombre y muestra la afiliación seleccionada en la URL. La
+consulta no amplía permisos. El portal conserva la URL histórica de borradores
+solo para roles de miembro reconocidos, sin incluirla en el menú principal.
+
+La vista reutiliza la ficha de afiliación, `derechoAfiliacionPadron` y el
+componente existente de Novedades. La clasificación, el plan y el booleano de
+cobertura se presentan como datos distintos. Una afiliación vigente o habilitada
+no garantiza tratamiento ni pago: siguen aplicando fechas, plan, convenio,
+reglas del servicio, cupos y autorización. Las reglas de cobertura y el plan
+actual tienen enlaces separados. Abrir evidencia no ejecuta escrituras; toda
+decisión de cobertura continúa en el control explícito de la novedad.
+
+Los borradores conservan su ruta, API, versiones e historial de simulación. Se
+presentan como módulo de configuración no operativa, con retorno a Derechos; no
+se activan ni cambian reglas por esta navegación. El auditor conserva solo su
+comportamiento de lectura previo.
+
+### Verificación de U2
+
+La prueba real focal se ejecutó en Chromium de escritorio y móvil. Confirmó la
+búsqueda `estado=todos`, selección desde la URL, back/forward y recarga, apertura
+sin escritura automática, decisión explícita, ficha e historial persistidos, y
+lectura de evidencia del auditor sin controles de cambio. También comprobó la
+ruta secundaria de borradores para auditor. La suite aislada completa, ejecutada
+antes de la última ampliación de aserciones, aprobó 24 pruebas; después se volvió
+a ejecutar dos lotes focales: 4 pruebas del flujo por persona (back/forward,
+recarga, decisión y auditor) y 4 de clasificación futura/finalizada y acceso sin
+membresía, en escritorio y móvil. Las pruebas unitarias de menú/navegación
+aprobaron 15 casos y `npm run build` finalizó correctamente.
+
+La identidad sintética sin membresía se probó en navegador, escritorio y móvil:
+no obtiene afiliaciones de la organización ni muestra la sección operativa o la
+ruta histórica de borradores. El escenario futuro se agrega sólo en el fixture
+aislado: el alta pública rechaza `desde` posterior a la fecha actual. La
+afiliación finalizada se prepara con el endpoint público de finalización. En
+ambas, la pantalla mostró la clasificación respectiva y `Habilitada` por
+separado, sin escritura de cobertura al navegar.
+
+No se afirma aceptación humana, despliegue ni homologación OSTEL.

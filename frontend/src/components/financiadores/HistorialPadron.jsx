@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { api } from "@/api/client";
 import { errorFinanciador, filasDe } from "@/api/financiadores";
 import { POR_PAGINA } from "@/api/queries";
@@ -7,11 +8,12 @@ import { Badge, Button, Spinner } from "@/components/ui";
 import TarjetaFicha from "./TarjetaFicha";
 import { cn } from "@/lib/cn";
 import { fechaHora } from "@/lib/format";
+import { buildRightsNoveltyUrl } from "@/lib/derechosNavigation";
 import { BLOQUES_PADRON, CAMPOS_COBRANZA, CAMPOS_SALUD, CAMPOS_LEGAJO, CAMPOS_FAMILIA, valorCampoPadron } from "./padronCampos";
 
 const CAMPOS = [...BLOQUES_PADRON.flatMap((bloque) => bloque.campos), ...CAMPOS_FAMILIA, ...CAMPOS_LEGAJO, ...CAMPOS_SALUD, ...CAMPOS_COBRANZA];
 const TIPOS = { actualizacion: "Actualización", finalizacion: "Finalización", reactivacion: "Reactivación" };
-const ORIGENES = { manual: "Carga manual", importacion: "Importación de padrón" };
+const ORIGENES = { manual: "Carga manual", importacion: "Importación de padrón", novedad: "Novedad del financiador" };
 const motivoVisible = (evento) => evento.lote && evento.origen === "importacion" && evento.motivo === "Importación v2 de padrón" ? "Importación de padrón" : evento.motivo;
 // Una presentación del legajo cambia como un objeto entero. Mostrar el objeto
 // tachado al lado del nuevo obliga a buscar la diferencia a ojo: se listan sólo
@@ -30,7 +32,7 @@ function filasCambio(name, cambio) {
     });
 }
 
-export default function HistorialPadron({ ruta, scope, titulo = "Historia administrativa" }) {
+export default function HistorialPadron({ ruta, scope, titulo = "Historia administrativa", financierId, affiliateId }) {
   const [pagina, setPagina] = useState(1);
   const consulta = useQuery({ queryKey: [...scope, "historial", ruta, pagina], queryFn: () => api.get(`${ruta}?${new URLSearchParams({ page: pagina, page_size: POR_PAGINA })}`), gcTime: 0, retry: false });
   return <section aria-label={titulo}><TarjetaFicha titulo={titulo} icono="reloj">
@@ -39,7 +41,9 @@ export default function HistorialPadron({ ruta, scope, titulo = "Historia admini
         <span className="absolute -left-[31px] top-1 size-3 rounded-full border-2 border-superficie bg-accent" aria-hidden="true" />
         <div className="flex flex-wrap items-center gap-2"><Badge tone={evento.tipo === "finalizacion" ? "amber" : evento.tipo === "reactivacion" ? "green" : "info"}>{TIPOS[evento.tipo] || evento.tipo || "Corrección"}</Badge><span className="font-semibold tabular-nums">{fechaHora(evento.registrado)}</span></div>
         <div className="mt-1.5 space-y-0.5 text-texto-debil"><p>Registrado por {evento.usuario_nombre || "Usuario no disponible"}</p>
-          {evento.motivo && <p className="text-texto-suave">Motivo: {motivoVisible(evento)}</p>}{evento.origen && <p>Origen: {ORIGENES[evento.origen] || evento.origen}{evento.lote ? ` · Lote ${evento.lote}` : ""}</p>}</div>
+          {evento.motivo && <p className="text-texto-suave">Motivo: {motivoVisible(evento)}</p>}{evento.origen && <p>Origen: {ORIGENES[evento.origen] || evento.origen}{evento.lote ? evento.origen === "novedad" ? ` · Novedad #${evento.lote}` : ` · Lote ${evento.lote}` : ""}</p>}
+          {evento.origen === "novedad" && evento.lote && financierId && affiliateId && <Link className="inline-block font-medium text-accent hover:underline" to={buildRightsNoveltyUrl({ financierId, affiliateId, noveltyId: evento.lote })}>Ver novedad #{evento.lote}</Link>}
+        </div>
         {Object.entries(evento.cambios || {}).length > 0 && <dl className="mt-3 divide-y divide-division overflow-hidden rounded-md border border-division">{Object.entries(evento.cambios).flatMap(([name, cambio]) => filasCambio(name, cambio)).map((fila) => {
           const anterior = valorCampoPadron(fila.campo, fila.anterior);
           return <div key={fila.key} className="grid gap-1 px-3 py-2.5 sm:grid-cols-[minmax(9rem,16rem)_1fr] sm:gap-4"><dt className="text-xs font-medium uppercase tracking-wide text-texto-debil sm:pt-0.5">{fila.label}</dt><dd className="min-w-0 break-words whitespace-pre-wrap"><span className={cn("text-texto-tenue", anterior !== "Sin informar" && "line-through")}>{anterior}</span><span className="px-1.5 text-texto-debil" aria-label="cambió a">→</span><span className="font-medium">{valorCampoPadron(fila.campo, fila.nuevo)}</span></dd></div>;

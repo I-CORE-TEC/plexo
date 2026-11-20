@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { accesoFinanciador, itemsFinanciador } from "./menuFinanciador.js";
+import { accesoFinanciador, itemsFinanciador, puedeAccederBorradoresLegados } from "./menuFinanciador.js";
 
 const plataforma = { capacidades_por_institucion: { global: ["gobierno_plataforma"] } };
 const menu = (organizacion, opciones = {}) => itemsFinanciador({ organizacion, plataforma: false, sufijo: "?financiador=7", ...opciones });
@@ -56,4 +56,20 @@ test("Ver como usa la identidad efectiva sin sumar al superusuario real", () => 
 test("sin organización no se muestran secciones operativas", () => {
   assert.deepEqual(menu(null), []);
   assert.ok(menu({ rol: "auditor" }).every((item) => item.to.endsWith("?financiador=7")));
+});
+
+test("Derechos vive en la ficha, fuera del menú para cada miembro", () => {
+  for (const rol of ["admin", "operador", "auditor"]) {
+    const keys = menu({ rol }).map((item) => item.key);
+    assert.equal(keys.includes("derechos"), false);
+    assert.equal(keys.includes("borradores"), false);
+    assert.ok(menu({ rol }).find((item) => item.key === "padron").to.endsWith("?financiador=7"));
+  }
+  assert.equal(menu({ rol: null }).some((item) => item.key === "derechos"), false);
+  assert.equal(menu({ rol: "desconocido" }).some((item) => item.key === "derechos"), false);
+});
+
+test("la URL histórica de Borradores sólo conserva acceso de miembros reconocidos", () => {
+  for (const rol of ["admin", "operador", "auditor"]) assert.equal(puedeAccederBorradoresLegados({ rol }), true);
+  for (const organizacion of [null, {}, { rol: null }, { rol: "desconocido" }]) assert.equal(puedeAccederBorradoresLegados(organizacion), false);
 });

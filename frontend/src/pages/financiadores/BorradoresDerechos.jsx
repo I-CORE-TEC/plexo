@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { api } from "@/api/client";
 import { errorFinanciador, opcionesFinanciador, rutaFinanciador } from "@/api/financiadores";
 import { REGIMENES } from "@/components/financiadores/padronCampos";
@@ -69,7 +70,9 @@ export default function BorradoresDerechos({ organizacion, usuarioId }) {
   const falloConsulta = consulta.error || planes.error;
   return <section className="space-y-5" aria-label="Reglas de derechos">
     <header className="space-y-2">
-      <h1 className="text-cifra font-bold">Reglas de derechos</h1>
+      <Link className="text-sm font-semibold text-accent hover:underline" to={`/financiadores/derechos?financiador=${organizacion.id}`}>Volver a Derechos</Link>
+      <h1 className="text-cifra font-bold">Borradores de reglas de derechos</h1>
+      <p className="text-sm font-semibold text-texto-suave">Módulo de configuración no operativa</p>
       <p className="text-sm text-texto-suave">Versiones de configuración en estado Borrador. La simulación temporal no aprueba ni activa derechos.</p>
       <p className="rounded-md border border-borde bg-badge-amber-bg p-3 text-sm text-badge-amber-fg">Guardar una versión no aprueba ni activa derechos.</p>
     </header>

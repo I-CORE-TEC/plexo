@@ -4,7 +4,8 @@ export const ROLES = { admin: "Administración", operador: "Operación", auditor
 export const SECCIONES = [
   { key: "inicio", label: "Inicio", icon: "home" },
   { key: "planes", label: "Planes", icon: "layers" },
-  { key: "borradores", label: "Reglas de derechos", icon: "fileText" },
+  { key: "derechos", label: "Derechos", icon: "idCard", menu: false },
+  { key: "borradores", label: "Borradores de derechos", icon: "fileText", menu: false },
   { key: "reglas", label: "Reglas de cobertura", icon: "clipboard" },
   { key: "aranceles", label: "Aranceles", icon: "list" },
   { key: "padron", label: "Padrón de afiliados", icon: "idCard" },
@@ -25,10 +26,14 @@ export function accesoFinanciador(usuario, organizacion) {
   return { plataforma, admin, operador: admin || organizacion?.rol === "operador" };
 }
 
+export function puedeAccederBorradoresLegados(organizacion) {
+  return Object.hasOwn(ROLES, organizacion?.rol);
+}
+
 export function itemsFinanciador({ organizacion, plataforma, sufijo }) {
   // El servidor devuelve el rol real, o admin para el superusuario efectivo.
   const miembro = Object.hasOwn(ROLES, organizacion?.rol);
-  return SECCIONES.filter((item) => item.key === "catalogo" ? plataforma :
-    item.key === "usuarios" ? organizacion?.rol === "admin" || plataforma && organizacion?.puede_designar_admin_inicial === true : miembro)
+  return SECCIONES.filter((item) => item.menu !== false && (item.key === "catalogo" ? plataforma :
+    item.key === "usuarios" ? organizacion?.rol === "admin" || plataforma && organizacion?.puede_designar_admin_inicial === true : miembro))
     .map((item) => ({ ...item, to: `/financiadores/${item.key}${item.key === "catalogo" ? "" : sufijo}` }));
 }

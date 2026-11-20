@@ -99,7 +99,7 @@ class CoberturaBaseViewSet(viewsets.GenericViewSet):
     cerrar_convenio=extend_schema(request=OpenApiTypes.OBJECT, responses=s.ConvenioSerializer),
     rechazar_convenio=extend_schema(request=OpenApiTypes.OBJECT, responses=s.ConvenioSerializer),
     actividad=extend_schema(parameters=[FiltrosActividad], responses={200: OpenApiTypes.OBJECT, (200, "text/csv"): OpenApiTypes.BINARY}),
-    ficha_afiliado=extend_schema(parameters=[FiltrosActividad, OpenApiParameter("afiliado", int, required=True)], responses={200: OpenApiTypes.OBJECT, (200, "text/csv"): OpenApiTypes.BINARY}),
+    ficha_afiliado=extend_schema(parameters=[FiltrosActividad, OpenApiParameter("afiliado", int, required=True), OpenApiParameter("pagos", bool, description="Solo JSON: incluir saldos registrados del financiador por cuenta, sin modificar cargos. pagos=true con formato=csv devuelve 400.")], responses={200: OpenApiTypes.OBJECT, (200, "text/csv"): OpenApiTypes.BINARY}),
     ficha_afiliado_autorizaciones=extend_schema(parameters=[OpenApiParameter("afiliado", int, required=True), OpenApiParameter("pendientes", bool)], responses=OpenApiTypes.OBJECT),
     ficha_historia_casos=extend_schema(parameters=[OpenApiParameter("afiliado", int, required=True)], responses=OpenApiTypes.OBJECT),
     ficha_historia_evoluciones=extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT),
@@ -523,6 +523,9 @@ class FinanciadorViewSet(NovedadesMixin, SimulacionPlazoMixin, BorradoresDerecho
         afiliado = self._afiliado_ficha(request, org)
         filtros = FiltrosActividad(data=request.query_params.dict())
         filtros.is_valid(raise_exception=True)
+        incluir_pagos = serializers.BooleanField().run_validation(request.query_params.get("pagos", False))
+        if incluir_pagos and filtros.validated_data["formato"] == "csv":
+            raise serializers.ValidationError({"pagos": "La consulta de pagos solo está disponible en JSON."})
         qs = con_importes(filtrar_actividad(
             actividad_visible(org).filter(afiliado=afiliado), filtros.validated_data,
         )).order_by("-fecha", "-pk")
@@ -530,7 +533,13 @@ class FinanciadorViewSet(NovedadesMixin, SimulacionPlazoMixin, BorradoresDerecho
             return exportar_actividad(request, org, qs, recurso="financiadores-ficha-afiliado-csv",
                                      evento="exportar_ficha_afiliado", nombre=f"ficha-afiliado-{afiliado.pk}")
         pagina = list(self.paginate_queryset(qs))
-        response = self.get_paginated_response([fila_actividad(reserva) for reserva in pagina])
+        filas = [fila_actividad(reserva) for reserva in pagina]
+        if incluir_pagos:
+            from .consulta_derechos import pagos_por_reserva
+            pagos = pagos_por_reserva(pagina)
+            for fila in filas:
+                fila["pago_financiador"] = pagos[fila["id"]]
+        response = self.get_paginated_response(filas)
         response.data.update(
             afiliado={"id": afiliado.pk, "nombre": afiliado.nombre, "documento": afiliado.documento,
                       "numero": afiliado.numero, "plan": afiliado.plan_id,
@@ -549,6 +558,28 @@ class FinanciadorViewSet(NovedadesMixin, SimulacionPlazoMixin, BorradoresDerecho
             auditar_actividad(request, org, pagina, recurso="financiadores-ficha-afiliado")
             auditar(request.user, "consultar_afiliado", org.pk, financiador=org)
         return response
+
+    @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT,
+                   description="Simulación sin efectos de negocio con afiliación actual. No autoriza atención ni pagos.")
+    @action(detail=True, methods=["post"], url_path="simular-prestacion")
+    def simular_prestacion(self, request, pk=None):
+        from apps.finanzas.models import Prestacion
+        from .consulta_derechos import simular_afiliado
+
+        org = self.organizacion()
+        hospitales = vigencias.convenios_vigentes().filter(financiador=org).values("institucion_id")
+        vinculos = m.VinculoPrestacion.objects.filter(prestacion__institucion_id__in=hospitales,
+                                                     prestacion__activo=True, comun__activo=True)
+        d = datos(request, {
+            "afiliado": serializers.PrimaryKeyRelatedField(queryset=m.Afiliado.objects.filter(financiador=org).select_related("plan", "financiador")),
+            "prestacion": serializers.PrimaryKeyRelatedField(queryset=Prestacion.objects.filter(pk__in=vinculos.values("prestacion_id"))),
+            "fecha": serializers.DateField(), "cantidad": serializers.IntegerField(min_value=1, max_value=100000),
+        })
+        prestacion = d.pop("prestacion")
+        vinculo = vinculos.select_related("prestacion__institucion", "comun").get(prestacion=prestacion)
+        resultado = simular_afiliado(vinculo=vinculo, **d)
+        auditar(request.user, "simular_prestacion", d["afiliado"].pk, financiador=org)
+        return Response(resultado)
 
     @action(detail=True, methods=["get"], url_path="ficha-afiliado-autorizaciones")
     def ficha_afiliado_autorizaciones(self, request, pk=None):
