@@ -12,6 +12,25 @@ from .test_seguimiento import SeguimientoSetup
 
 
 class ConsultaDerechosTests(SeguimientoSetup, APITestCase):
+    def test_pagos_csv_rechaza_la_combinacion_sin_efectos(self):
+        self.realizar()
+        antes = self.negocio()
+        respuesta = self.ficha(pagos="true", formato="csv")
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertEqual(str(respuesta.data["pagos"]),
+                         "La consulta de pagos solo está disponible en JSON.")
+        self.assertEqual(self.negocio(), antes)
+
+    def test_csv_sin_pagos_conserva_la_exportacion(self):
+        self.realizar()
+        antes = self.negocio()
+        original = self.ficha(formato="csv")
+        sin_pagos = self.ficha(formato="csv", pagos="false")
+        self.assertEqual((original.status_code, sin_pagos.status_code), (200, 200))
+        self.assertEqual(original.content, sin_pagos.content)
+        self.assertNotIn(b"pago_financiador", original.content)
+        self.assertEqual(self.negocio(), antes)
+
     def setUp(self):
         super().setUp()
         self.client.force_authenticate(self.operador)
@@ -31,7 +50,7 @@ class ConsultaDerechosTests(SeguimientoSetup, APITestCase):
                 (Caso, AfiliacionCaso, ReservaCobertura, ObligacionFinanciera,
                  MovimientoDinero)]
         estado.append(list(EventoCobertura.objects.exclude(
-            accion__in=["consultar_afiliado", "simular_prestacion"]
+            accion__in=["consultar_afiliado", "simular_prestacion", "exportar_ficha_afiliado"]
         ).order_by("pk").values()))
         return estado
 

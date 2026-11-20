@@ -99,7 +99,7 @@ class CoberturaBaseViewSet(viewsets.GenericViewSet):
     cerrar_convenio=extend_schema(request=OpenApiTypes.OBJECT, responses=s.ConvenioSerializer),
     rechazar_convenio=extend_schema(request=OpenApiTypes.OBJECT, responses=s.ConvenioSerializer),
     actividad=extend_schema(parameters=[FiltrosActividad], responses={200: OpenApiTypes.OBJECT, (200, "text/csv"): OpenApiTypes.BINARY}),
-    ficha_afiliado=extend_schema(parameters=[FiltrosActividad, OpenApiParameter("afiliado", int, required=True), OpenApiParameter("pagos", bool, description="Incluir saldos registrados del financiador, por cuenta; no modifica cargos.")], responses={200: OpenApiTypes.OBJECT, (200, "text/csv"): OpenApiTypes.BINARY}),
+    ficha_afiliado=extend_schema(parameters=[FiltrosActividad, OpenApiParameter("afiliado", int, required=True), OpenApiParameter("pagos", bool, description="Solo JSON: incluir saldos registrados del financiador por cuenta, sin modificar cargos. pagos=true con formato=csv devuelve 400.")], responses={200: OpenApiTypes.OBJECT, (200, "text/csv"): OpenApiTypes.BINARY}),
     ficha_afiliado_autorizaciones=extend_schema(parameters=[OpenApiParameter("afiliado", int, required=True), OpenApiParameter("pendientes", bool)], responses=OpenApiTypes.OBJECT),
     ficha_historia_casos=extend_schema(parameters=[OpenApiParameter("afiliado", int, required=True)], responses=OpenApiTypes.OBJECT),
     ficha_historia_evoluciones=extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT),
@@ -523,6 +523,9 @@ class FinanciadorViewSet(NovedadesMixin, SimulacionPlazoMixin, BorradoresDerecho
         afiliado = self._afiliado_ficha(request, org)
         filtros = FiltrosActividad(data=request.query_params.dict())
         filtros.is_valid(raise_exception=True)
+        incluir_pagos = serializers.BooleanField().run_validation(request.query_params.get("pagos", False))
+        if incluir_pagos and filtros.validated_data["formato"] == "csv":
+            raise serializers.ValidationError({"pagos": "La consulta de pagos solo está disponible en JSON."})
         qs = con_importes(filtrar_actividad(
             actividad_visible(org).filter(afiliado=afiliado), filtros.validated_data,
         )).order_by("-fecha", "-pk")
@@ -531,7 +534,7 @@ class FinanciadorViewSet(NovedadesMixin, SimulacionPlazoMixin, BorradoresDerecho
                                      evento="exportar_ficha_afiliado", nombre=f"ficha-afiliado-{afiliado.pk}")
         pagina = list(self.paginate_queryset(qs))
         filas = [fila_actividad(reserva) for reserva in pagina]
-        if serializers.BooleanField().run_validation(request.query_params.get("pagos", False)):
+        if incluir_pagos:
             from .consulta_derechos import pagos_por_reserva
             pagos = pagos_por_reserva(pagina)
             for fila in filas:

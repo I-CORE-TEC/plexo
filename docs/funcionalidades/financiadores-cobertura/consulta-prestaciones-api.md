@@ -28,6 +28,9 @@ obligación actual, ajustes, pagos netos aprobados, deuda, devolución y operaci
 pendientes. Reutiliza el cálculo de Finanzas; una cuenta saldada por ajuste no se
 presenta como un pago. Conserva las restricciones existentes de acceso histórico.
 Sin `pagos=true`, JSON mantiene su contrato anterior; CSV no incorpora la proyección.
+La combinación `pagos=true&formato=csv` devuelve HTTP 400 con un error en `pagos`,
+porque los saldos están disponibles únicamente en JSON. CSV sin `pagos` o con
+`pagos=false` conserva su exportación habitual.
 
 ## Verificación y reversión
 
