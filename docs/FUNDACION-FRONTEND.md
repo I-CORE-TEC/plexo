@@ -153,12 +153,43 @@ Con un solo token, el número de la fila destacada quedaba en 2,7:1 en oscuro.
 |---|---|
 | `api/queries.js` | `useLista` (listas paginadas), `useDetalle`, `useAccion` (mutación que invalida las listas), `POR_PAGINA` (filas por página de un listado nuevo: 10) |
 | `components/ui/tabla.jsx` | `TablaRecurso` (tabla conectada a un recurso) y `DataTable` (presentacional) |
+| `components/ui/SelectorBuscable.jsx` | Selección única con búsqueda, resultados flotantes y navegación por teclado |
 | `components/ui/filtros.jsx` | `Buscador` (con retardo), `FiltroSelect`, `LimpiarFiltros`, `useFiltroUrl` |
 | `components/ui/estados.jsx` | `Skeleton`, `SkeletonTabla`, `EstadoVacio`, `EstadoError` |
 | `components/ui/toast.jsx` | `useToast()` → `.ok()`, `.error()`, `.deError(e)` |
 | `lib/cn.js` | Combina clases resolviendo conflictos de Tailwind |
 | `lib/media.js` | `useEsEscritorio()` para cuando el ancho cambia la *estructura*, no el estilo |
 | `lib/tema.js` | `useTema()` |
+
+---
+
+## Selección con búsqueda
+
+Para elegir una entidad de un catálogo, usar `SelectorBuscable`: un único campo,
+no un buscador seguido de un `<select>`. `Buscador` sigue siendo el patrón para
+filtrar un listado sin seleccionar una entidad.
+
+- El consumidor entrega `value` (`{ id, label }` o `null`), `options`, `search`,
+  `onChange` y `onSearchChange`. Conserva el alcance de permisos, la consulta
+  remota y su retardo; el selector no conoce endpoints ni interpreta IDs.
+- Los resultados son una capa flotante en portal, con posición fija y `z-index`
+  superior al modal. Se ajustan al viewport y al scroll; no desplazan campos.
+- Al elegir, queda sólo la etiqueta elegida y se cierra la lista. Escribir de
+  nuevo invalida la selección anterior. Texto libre nunca equivale a un ID válido.
+- Carga, vacío y error se muestran dentro de la capa. El formulario permanece
+  montado. No mostrar opciones antiguas mientras cambia el término de consulta.
+- Flechas y Enter seleccionan; Escape cierra primero los resultados; Tab cierra
+  la lista y continúa el formulario. Avance/retroceso de página permiten paginar;
+  ante un error, Enter reintenta. El foco permanece en el campo.
+- Para catálogos paginados, pasar `page`, `hasNext` y `onPageChange`; no descargar
+  todo el catálogo ni navegar directamente a un enlace `next` del servidor.
+- Ejemplo integrado: `pages/financiadores/ConsultaPrestacionModal.jsx`, con retardo
+  de 350 ms y opciones etiquetadas por prestación, hospital y código.
+
+En cambios nuevos o al modificar un selector existente, reutilizar este patrón.
+No implica migrar controles especializados que no forman parte de la tarea.
+Verificar en escritorio y móvil: posición de los campos invariable, teclado,
+reintento, selección obligatoria y cierre sin enviar el formulario.
 
 ---
 

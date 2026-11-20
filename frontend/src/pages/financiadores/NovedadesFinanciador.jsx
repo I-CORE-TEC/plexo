@@ -6,6 +6,7 @@ import { api } from "@/api/client";
 import { errorFinanciador, filasDe, rutaFinanciador } from "@/api/financiadores";
 import { Button, Card, Checkbox, Field, Input, Modal, Select, Spinner, Textarea } from "@/components/ui";
 import { buildRightsAffiliateUrl, parseRightsNavigation, updateRightsNavigation } from "@/lib/derechosNavigation";
+import TarjetaFicha from "@/components/financiadores/TarjetaFicha";
 
 const ESTADOS = { pendiente: "Pendiente", conciliada: "Conciliada", descartada: "Descartada" };
 const CONFLICTOS = { padron_modificado: "El padrón cambió desde el registro de la propuesta.", referencia_repetida: "La fuente y referencia coinciden con otra propuesta. No se eligió una ganadora." };
@@ -144,33 +145,43 @@ export default function NovedadesFinanciador({ organizacion, scope, operador, pe
     affiliateId: novedad.persona_actual.id, tab: "historial" });
 
   return <div className="space-y-4">
-    <p role="note" className="rounded-lg border border-division bg-superficie-2 p-4 text-sm">{AVISO}</p>
+    {!personaFija && <><p role="note" className="rounded-lg border border-division bg-superficie-2 p-4 text-sm">{AVISO}</p>
     <details className="rounded-lg border border-division p-3 text-sm">
       <summary className="cursor-pointer font-semibold">Gestión manual de novedades</summary>
       <p className="mt-2">Registra evidencia, revisa diferencias y concilia o descarta la propuesta. Un operador autorizado puede decidir la habilitación de cobertura con motivo e historial, cuando corresponda.</p>
       <p className="mt-2">Las fechas y causales no generan cambios automáticos. Las bajas, reingresos, gracia, mora, cambios de plan y efectos en familias, atención o dinero requieren reglas validadas. Las reglas automáticas de OSTEL siguen pendientes de validación.</p>
-    </details>
+    </details></>}
     <div className="flex flex-wrap items-end justify-between gap-3">
       <Field label="Estado de la novedad"><Select value={estado} onChange={(e) => cambiarNavegacion({ status: e.target.value, page: null, noveltyId: null })}>
         <option value="">Todos</option>{Object.entries(ESTADOS).map(([valor, etiqueta]) => <option key={valor} value={valor}>{etiqueta}</option>)}
       </Select></Field>
       {operador && <Button onClick={() => nueva()}>Registrar novedad</Button>}
     </div>
-    {afiliado != null && <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-superficie-2 px-3 py-2 text-sm">
+    {afiliado != null && !personaFija && <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-superficie-2 px-3 py-2 text-sm">
       <span>Mostrando novedades de la persona #{afiliado}</span>
       {!personaFija && <Button variant="ghost" size="sm" onClick={limpiarContexto}>Quitar filtro de persona</Button>}
     </div>}
     {navegacion.invalid && <p role="alert" className="rounded-md bg-badge-error-bg p-3 text-sm text-badge-error-fg">El enlace contiene un identificador inválido. Limpiá el enlace antes de continuar. <Button variant="ghost" onClick={limpiarContexto}>Limpiar enlace</Button></p>}
     {navegacion.invalid ? null : listado.isPending ? <Spinner /> : listado.error ? <p role="alert">{errorFinanciador(listado.error)} <Button variant="secondary" onClick={() => listado.refetch()}>Reintentar</Button></p> : <>
       {!filasDe(listado.data).length && <Card><p className="text-sm text-texto-suave">No hay novedades en este estado.</p></Card>}
-      <ul aria-label="Novedades registradas" className="space-y-3">{filasDe(listado.data).map((item) => <li key={item.id}>
+      {personaFija ? <TarjetaFicha titulo="Novedades" cuerpoClassName="p-0"><div className="overflow-x-auto">
+        <table aria-label="Novedades registradas" className="w-full text-left text-sm">
+          <thead className="border-b border-division bg-superficie-2 text-texto-debil"><tr>{["Evidencia", "Estado", "Decisión", "Detalle"].map((titulo) => <th key={titulo} scope="col" className="px-4 py-3 font-medium">{titulo}</th>)}</tr></thead>
+          <tbody>{filasDe(listado.data).map((item) => <tr key={item.id} className="border-b border-division last:border-0">
+            <td className="min-w-40 max-w-80 break-words px-4 py-3"><p className="font-medium">{item.original.referencia || "Sin referencia externa"}</p><p className="mt-1 text-xs text-texto-suave">#{item.id} · {item.original.fuente}</p><p className="mt-1 text-xs text-texto-suave">{item.original.codigo || "Sin código informado"}</p></td>
+            <td className="px-4 py-3">{ESTADOS[item.estado]}</td>
+            <td className="px-4 py-3">{estadoDecision(item)}</td>
+            <td className="px-4 py-3"><Button variant="secondary" size="sm" onClick={() => abrir(item.id)} aria-label={`Ver novedad ${item.id}`}>Ver detalle</Button></td>
+          </tr>)}</tbody>
+        </table>
+      </div></TarjetaFicha> : <ul aria-label="Novedades registradas" className="space-y-3">{filasDe(listado.data).map((item) => <li key={item.id}>
         <Card><div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1 break-words"><p className="font-semibold">{item.original.fuente} · {item.original.referencia || "Sin referencia externa"}</p>
             <p className="mt-1 text-sm text-texto-suave">#{item.id} · Evidencia: {ESTADOS[item.estado]} · {item.original.codigo || "Sin código informado"}</p>
             <p className="mt-1 text-sm">Decisión registrada: <span>{estadoDecision(item)}</span></p></div>
           <Button variant="secondary" onClick={() => abrir(item.id)} aria-label={`Ver novedad ${item.id}`}>Ver detalle</Button>
         </div></Card>
-      </li>)}</ul>
+      </li>)}</ul>}
       <nav aria-label="Paginación de novedades" className="flex items-center justify-between gap-3">
         <Button variant="secondary" disabled={!listado.data?.previous} onClick={() => cambiarNavegacion({ page: pagina - 1 })}>Anterior</Button>
         <span className="text-sm">Página {pagina} · {listado.data?.count || 0} novedades</span>
@@ -180,39 +191,25 @@ export default function NovedadesFinanciador({ organizacion, scope, operador, pe
     {formulario && operador && createPortal(<FormularioNovedad formulario={formulario} cambiar={setFormulario}
       personaInicial={personaInicial} personaFija={personaFija} basePadron={rutaFinanciador(organizacion.id, "padron")}
       scope={scope} ocupado={ocupado} error={errorFormulario} guardar={guardar} cerrar={() => setFormulario(null)} />, document.body)}
-    {seleccion != null && createPortal(<Modal title={`Novedad #${seleccion}`} width={860}
+    {seleccion != null && createPortal(<Modal title={`Novedad #${seleccion}`} ayuda={AVISO} width={860}
       onClose={ocupado ? undefined : cerrar} footer={<Button variant="secondary" disabled={ocupado} onClick={cerrar}>Cerrar</Button>}>
       {navegacion.invalid ? <p role="alert">El identificador de la novedad no es válido.</p> : novedadAjen ? <p role="alert">La novedad no corresponde a la persona seleccionada. No se muestra la evidencia. <Button variant="ghost" onClick={cerrar}>Limpiar selección</Button></p> : detalle.isPending ? <Spinner /> : detalle.error ? <p role="alert">{errorFinanciador(detalle.error)} <Button onClick={actualizar}>Reintentar</Button></p> : novedad && <div className="space-y-4">
-        <p className="font-semibold">Evidencia: {ESTADOS[novedad.estado]}</p>
-        <p className="text-sm">Decisión registrada: {estadoDecision(novedad)}</p><p className="text-sm">{AVISO}</p>
-        <section aria-label="Siguiente paso" className="rounded-lg bg-superficie-2 p-4 text-sm">
-          <h2 className="font-semibold">Siguiente paso</h2><p className="mt-1">{siguientePaso(novedad, operador)}</p>
+        <section aria-label="Resumen de la novedad" className="grid gap-4 border-b border-division pb-5 sm:grid-cols-2">
+          <div><p className="text-xs font-medium uppercase tracking-wide text-texto-debil">Estado de la evidencia</p><p className="mt-1 text-lg font-semibold">{ESTADOS[novedad.estado]}</p></div>
+          <div><p className="text-xs font-medium uppercase tracking-wide text-texto-debil">Decisión registrada</p><p className="mt-1 text-lg font-semibold">{estadoDecision(novedad)}</p></div>
+        </section>
+        <section aria-label="Siguiente paso" className="text-sm">
+          <h2 className="font-semibold">Siguiente paso</h2><p className="mt-1 leading-relaxed text-texto-suave">{siguientePaso(novedad, operador)}</p>
           {novedad.rectificaciones?.map((id) => <Button key={id} variant="ghost" onClick={() => abrir(id)}>Revisar rectificación #{id}</Button>)}
           {coberturaBloqueada && !novedad.habilitacion_cobertura && <div className="mt-2 flex flex-wrap items-center gap-3">
             <Link className="font-medium text-accent hover:underline" to={fichaActual}>Revisar ficha actual</Link>
             {novedad.estado === "conciliada" && <Button variant="secondary" disabled={ocupado} onClick={actualizar}>Actualizar comparación</Button>}
           </div>}
         </section>
-        <section aria-label="Evidencia original" className="rounded-lg border border-division p-4">
-          <h2 className="mb-2 font-semibold">Evidencia original</h2>
-          <dl className="grid gap-2 text-sm sm:grid-cols-2">{[["Fuente", novedad.original.fuente], ["Referencia", novedad.original.referencia],
-            ["Código informado", novedad.original.codigo], ["Fecha informada (sin efecto automático)", novedad.original.fecha_informada],
-            ["Rectifica propuesta", novedad.original.rectifica]].map(([etiqueta, valor]) => <div key={etiqueta} className="min-w-0 break-words"><dt className="text-texto-suave">{etiqueta}</dt><dd>{valor || "Sin informar"}</dd></div>)}</dl>
-          <p className="mt-3 whitespace-pre-wrap break-words text-sm">{novedad.original.descripcion}</p>
-        </section>
-        <div className="grid gap-3 sm:grid-cols-2">{[["Al registrar", novedad.persona_inicial], ["Padrón actual", novedad.persona_actual]].map(([titulo, persona]) => <section key={titulo} className="rounded-lg bg-superficie-2 p-3 text-sm">
-          <h2 className="font-semibold">{titulo}</h2><p>{persona.nombre}</p><p>Documento: {persona.documento}</p><p>Revisión: {persona.revision} · {persona.finalizada ? "Afiliación finalizada" : "Afiliación no finalizada"}</p><p>Cobertura: {persona.cobertura_habilitada === true ? "Habilitada" : persona.cobertura_habilitada === false ? "Deshabilitada · sólo registro administrativo" : "No registrado"}</p>
-        </section>)}</div>
         {novedad.conflictos.length > 0 && <div role="status" className="rounded-lg bg-badge-amber-bg p-3 text-sm text-badge-amber-fg">
           <h2 className="font-semibold">Revisión de conflictos</h2><ul className="mt-2 list-inside list-disc">{novedad.conflictos.map((c) => <li key={c}>{CONFLICTOS[c] || c}</li>)}</ul>
           {novedad.coincidencias.length > 0 && <p>Propuestas relacionadas: {novedad.coincidencias.map((id) => `#${id}`).join(", ")}</p>}
         </div>}
-        <section aria-label="Historial de la propuesta"><h2 className="font-semibold">Historial de decisiones</h2>
-          <ol className="mt-2 space-y-2">{novedad.historia.map((h, i) => <li key={i} className="rounded-lg border border-division p-3 text-sm">
-            <p className="font-semibold">{h.accion === "registrar" ? "Registro" : h.accion === "conciliar" ? "Conciliación sin aplicación" : "Descarte"} · Usuario {h.usuario}</p>
-            <p className="text-texto-suave">{new Date(h.fecha).toLocaleString("es-AR")}</p><p className="mt-1 whitespace-pre-wrap break-words">{h.motivo}</p>
-          </li>)}</ol>
-        </section>
         {valoresDetalle.error && <p role="alert" className="text-badge-error-fg">{errorFinanciador(valoresDetalle.error)}</p>}
         {novedad.habilitacion_cobertura && <section aria-label="Decisión de cobertura" className="rounded-lg border border-division p-4 text-sm">
           <h2 className="font-semibold">Decisión explícita de cobertura</h2>
@@ -237,6 +234,22 @@ export default function NovedadesFinanciador({ organizacion, scope, operador, pe
           <Field label="Motivo de la decisión"><Textarea value={valoresDetalle.motivoCobertura} maxLength={255} disabled={ocupado} onChange={(e) => actualizarBorradorDetalle({ motivoCobertura: e.target.value })} /></Field>
           <Button disabled={ocupado || !valoresDetalle.valorCobertura || !valoresDetalle.motivoCobertura.trim()} onClick={decidirHabilitacion}>Aplicar decisión de cobertura</Button>
         </section>}
+        <section aria-label="Evidencia original" className="border-t border-division pt-5">
+          <h2 className="mb-3 font-semibold">Evidencia original</h2>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">{[["Fuente", novedad.original.fuente], ["Referencia", novedad.original.referencia],
+            ["Código informado", novedad.original.codigo], ["Fecha informada (sin efecto automático)", novedad.original.fecha_informada],
+            ["Rectifica propuesta", novedad.original.rectifica]].map(([etiqueta, valor]) => <div key={etiqueta} className="min-w-0 break-words"><dt className="text-xs text-texto-debil">{etiqueta}</dt><dd className="mt-1 font-medium">{valor || "Sin informar"}</dd></div>)}</dl>
+          <p className="mt-4 whitespace-pre-wrap break-words rounded-md bg-superficie-2 p-3 text-sm leading-relaxed">{novedad.original.descripcion}</p>
+        </section>
+        <div className="grid gap-3 sm:grid-cols-2">{[["Al registrar", novedad.persona_inicial], ["Padrón actual", novedad.persona_actual]].map(([titulo, persona]) => <section key={titulo} className="rounded-lg bg-superficie-2 p-3 text-sm">
+          <h2 className="font-semibold">{titulo}</h2><p>{persona.nombre}</p><p>Documento: {persona.documento}</p><p>Revisión: {persona.revision} · {persona.finalizada ? "Afiliación finalizada" : "Afiliación no finalizada"}</p><p>Cobertura: {persona.cobertura_habilitada === true ? "Habilitada" : persona.cobertura_habilitada === false ? "Deshabilitada · sólo registro administrativo" : "No registrado"}</p>
+        </section>)}</div>
+        <details key={novedad.id} aria-label="Historial de la propuesta" className="border-t border-division pt-4"><summary className="cursor-pointer text-sm font-semibold">Historial de decisiones ({novedad.historia.length})</summary>
+          {!novedad.historia.length && <p className="mt-3 text-sm text-texto-suave">No hay movimientos registrados.</p>}<ol className="mt-3 space-y-3 border-l border-division pl-4">{novedad.historia.map((h, i) => <li key={i} className="text-sm">
+            <p className="font-semibold">{h.accion === "registrar" ? "Registro" : h.accion === "conciliar" ? "Conciliación sin aplicación" : "Descarte"} · Usuario {h.usuario}</p>
+            <p className="text-texto-suave">{new Date(h.fecha).toLocaleString("es-AR")}</p><p className="mt-1 whitespace-pre-wrap break-words">{h.motivo}</p>
+          </li>)}</ol>
+        </details>
         {operador && <Button variant="secondary" disabled={ocupado} onClick={() => nueva(novedad)}>Registrar rectificación</Button>}
       </div>}
     </Modal>, document.body)}

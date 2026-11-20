@@ -257,8 +257,9 @@ test("recorrido real de registro y conciliación sin efectos", async ({ page, ba
   const resuelta = await resueltaPromise;
   expect(resuelta.status()).toBe(200);
   expect((await resuelta.json()).efectos_aplicados).toBe(false);
-  await expect(dialogo.getByText("Conciliada sin aplicación", { exact: true })).toBeVisible();
-  await expect(dialogo.getByRole("region", { name: "Historial de la propuesta" }).getByRole("listitem")).toHaveCount(2);
+  await expect(dialogo.getByRole("region", { name: "Resumen de la novedad" }).getByText("Conciliada", { exact: true })).toBeVisible();
+  await dialogo.locator("summary").filter({ hasText: "Historial de decisiones" }).click();
+  await expect(dialogo.locator('details[aria-label="Historial de la propuesta"]').getByRole("listitem")).toHaveCount(2);
   const despuesConciliar = await page.request.get(`/api/financiadores/${org.id}/padron/`, { headers: datos.headers });
   expect(await despuesConciliar.json()).toEqual(huella);
   const elegirEstado = dialogo.getByLabel("Estado de cobertura");
@@ -299,7 +300,7 @@ test("recorrido real de registro y conciliación sin efectos", async ({ page, ba
   await page.reload();
   await page.getByRole("button", { name: `Ver novedad ${propuesta.id}`, exact: true }).click();
   const reabierta = page.getByRole("dialog");
-  await expect(reabierta.getByText("Conciliada sin aplicación", { exact: true })).toBeVisible();
+  await expect(reabierta.getByRole("region", { name: "Resumen de la novedad" }).getByText("Conciliada", { exact: true })).toBeVisible();
   await expect(reabierta.getByText(/Cambio enlazado al historial del padrón/)).toBeVisible();
   await page.goto(`/financiadores/padron/${org.afiliado}?financiador=${org.id}&tab=historial`);
   const panelHistorial = page.getByRole("tabpanel", { name: "Historial" });
@@ -332,13 +333,13 @@ test("rectificación y descarte dejan historia sin sobrescribir evidencia", asyn
   await expect(conciliar).toBeDisabled();
   await dialogo.getByRole("checkbox", { name: "Revisé expresamente los conflictos y coincidencias indicados" }).check();
   await conciliar.click();
-  await expect(dialogo.getByText("Conciliada sin aplicación", { exact: true })).toBeVisible();
+  await expect(dialogo.getByRole("region", { name: "Resumen de la novedad" }).getByText("Conciliada", { exact: true })).toBeVisible();
   await expect(dialogo.getByRole("button", { name: "Cerrar", exact: true }).last()).toBeEnabled();
   await dialogo.getByRole("button", { name: "Cerrar", exact: true }).last().click();
   await page.getByRole("button", { name: `Ver novedad ${original.id}`, exact: true }).click();
   await dialogo.getByLabel("Motivo de la decisión").fill("Descarte ficticio conservando el antecedente.");
   await dialogo.getByRole("button", { name: "Descartar propuesta" }).click();
-  await expect(dialogo.getByText("Descartada", { exact: true })).toBeVisible();
+  await expect(dialogo.getByRole("region", { name: "Resumen de la novedad" }).getByText("Descartada", { exact: true })).toBeVisible();
   const guardada = await page.request.get(`/api/financiadores/${org.id}/novedades/${original.id}/`, { headers: datos.headers });
   const persistida = await guardada.json();
   expect(persistida.original).toEqual(original.original);

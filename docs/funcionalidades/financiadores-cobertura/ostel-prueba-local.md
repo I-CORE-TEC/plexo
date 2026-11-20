@@ -11,8 +11,8 @@ pasó. La validación local no equivale a homologación de OSTEL ni aceptación 
 
 - Aplicación: http://127.0.0.1:5189/financiadores/padron
 - Backend: http://127.0.0.1:8139
-- Accesos: `C:/Users/Juanito/AppData/Local/Temp/salud-ostel-180-zd1jg1g3/accesos-locales.json`. Usar primero la cuenta `operador`; luego `auditor`. Las contraseñas no se copian al repositorio.
-- Excel: `C:/Users/Juanito/AppData/Local/Temp/salud-ostel-180-zd1jg1g3/prueba-guiada`.
+- Accesos: `<directorio privado de la prueba>/accesos-locales.json`. Usar primero la cuenta `operador`; luego `auditor`. Las contraseñas no se copian al repositorio.
+- Excel: `<directorio privado de la prueba>/prueba-guiada`.
 - Organización: **OSTEL - Prueba local ficticia**.
 
 Al preparar la guía, la base conservaba algunos lotes del chequeo automático con personas 0201/0202. Los seis archivos usan personas 0101–0107. La persona 0107 ya existía con habilitación de cobertura; el archivo 06 también se usó en el chequeo real de conflictos y puede repetirse sin duplicarla. Tras la prueba del usuario puede haber más lotes/personas aplicados: revisar el historial antes de repetir; no borrar ni reiniciar la base para recuperar los conteos iniciales.
