@@ -43,7 +43,7 @@ export default function NovedadesFinanciador({ organizacion, scope, operador, pe
   const [parametros, setParametros] = useSearchParams();
   const contexto = new URLSearchParams(parametros);
   if (personaFija) contexto.set("afiliado", String(personaFija.id));
-  const navegacion = parseRightsNavigation(contexto);
+  const navegacion = parseRightsNavigation(contexto, { embedded: personaFija != null });
   const { status: estado, page: pagina, noveltyId: seleccion, affiliateId: afiliado } = navegacion;
   const identidadDetalle = JSON.stringify([organizacion.id, afiliado, seleccion]);
   const [formulario, setFormulario] = useState(null);
@@ -73,7 +73,8 @@ export default function NovedadesFinanciador({ organizacion, scope, operador, pe
   const coberturaBloqueada = novedad && (novedad.conflictos.length > 0 || novedad.rectificaciones?.length > 0);
 
   function cambiarNavegacion(cambios, opciones) {
-    setParametros(updateRightsNavigation(contexto, personaFija ? { ...cambios, affiliateId: personaFija.id } : cambios), opciones);
+    setParametros(updateRightsNavigation(contexto, personaFija ? { ...cambios, affiliateId: personaFija.id } : cambios,
+      { embedded: personaFija != null }), opciones);
   }
 
   function actualizarBorradorDetalle(cambios) {

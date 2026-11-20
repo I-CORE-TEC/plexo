@@ -6,8 +6,14 @@ function idPositivo(valor) {
   return Number.isSafeInteger(numero) ? numero : null;
 }
 
-export function parseRightsNavigation(search) {
+function camposNovedad(embedded) {
+  return { affiliateId: "afiliado", noveltyId: "novedad",
+    status: embedded ? "novedades_estado" : "estado", page: embedded ? "novedades_page" : "page" };
+}
+
+export function parseRightsNavigation(search, { embedded = false } = {}) {
   const params = new URLSearchParams(search);
+  const fields = camposNovedad(embedded);
   const id = (campo) => {
     if (!params.has(campo)) return { value: null, invalid: false };
     const value = idPositivo(params.get(campo));
@@ -15,8 +21,8 @@ export function parseRightsNavigation(search) {
   };
   const affiliate = id("afiliado");
   const novelty = id("novedad");
-  const requestedStatus = params.get("estado") || "";
-  const requestedPage = idPositivo(params.get("page") || "1");
+  const requestedStatus = params.get(fields.status) || "";
+  const requestedPage = idPositivo(params.get(fields.page) || "1");
 
   return {
     affiliateId: affiliate.value,
@@ -27,16 +33,16 @@ export function parseRightsNavigation(search) {
   };
 }
 
-export function updateRightsNavigation(search, updates) {
+export function updateRightsNavigation(search, updates, { embedded = false } = {}) {
   const params = new URLSearchParams(search);
-  const previous = parseRightsNavigation(params);
+  const fields = camposNovedad(embedded);
+  const previous = parseRightsNavigation(params, { embedded });
   const affiliateChanged = Object.hasOwn(updates, "affiliateId") && updates.affiliateId !== previous.affiliateId;
   const statusChanged = Object.hasOwn(updates, "status") && updates.status !== previous.status;
 
-  if (affiliateChanged || statusChanged) params.delete("page");
+  if (affiliateChanged || statusChanged) params.delete(fields.page);
   if (affiliateChanged) params.delete("novedad");
 
-  const fields = { affiliateId: "afiliado", noveltyId: "novedad", status: "estado", page: "page" };
   for (const [key, value] of Object.entries(updates)) {
     const field = fields[key];
     if (!field) continue;

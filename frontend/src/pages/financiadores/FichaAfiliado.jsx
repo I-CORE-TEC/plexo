@@ -209,7 +209,7 @@ function FichaAfiliadoContenido() {
   function cambiarTab(valor) {
     const nuevos = new URLSearchParams(parametros);
     if (tab === "derechos" || valor === "derechos") {
-      for (const campo of ["afiliado", "novedad", "estado", "page"]) nuevos.delete(campo);
+      for (const campo of ["afiliado", "novedad", "novedades_estado", "novedades_page"]) nuevos.delete(campo);
     }
     if (valor === "datos") nuevos.delete("tab");
     else nuevos.set("tab", valor);

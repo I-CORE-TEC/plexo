@@ -1,6 +1,7 @@
 // El contexto del listado viaja en la URL; las páginas internas de la ficha
 // pertenecen exclusivamente al afiliado abierto.
-const PAGINAS_FICHA = ["page", "autorizaciones_page", "historial_page", "tab"];
+const PAGINAS_FICHA = ["page", "autorizaciones_page", "historial_page", "tab",
+  "afiliado", "novedad", "novedades_estado", "novedades_page"];
 
 export function parametrosFicha(parametros, financiador, paginaPadron) {
   const query = new URLSearchParams(parametros);

@@ -29,6 +29,57 @@ async function scenario(page, overrides = {}, role = "operador") {
 }
 const embedded = "/financiadores/padron/45?financiador=21&tab=derechos&afiliado=99";
 
+test("embedded navigation preserves padron filters and isolates activity pagination", async ({ page }) => {
+  await scenario(page);
+  const activityPages = [];
+  const noveltyQueries = [];
+  await page.route("**/api/financiadores/21/ficha-afiliado/**", async (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    activityPages.push(query.get("page"));
+    if (query.get("page") !== "1") return route.fulfill({ status: 404, json: { detail: "Página inválida." } });
+    return route.fallback();
+  });
+  await page.route("**/api/financiadores/21/novedades/?**", async (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    noveltyQueries.push(Object.fromEntries(query));
+    const second = query.get("page") === "2";
+    await route.fulfill({ json: { count: 21, results: [], previous: second ? "?page=1" : null, next: second ? null : "?page=2" } });
+  });
+  const start = "/financiadores/padron/45?financiador=21&estado=administrativas&padron_page=3";
+  const returnLink = page.getByRole("link", { name: "Volver al padrón" });
+  const expectReturn = async () => {
+    const query = new URL(await returnLink.getAttribute("href"), "http://localhost").searchParams;
+    expect(Object.fromEntries(query)).toEqual({ financiador: "21", estado: "administrativas", page: "3" });
+  };
+  await page.goto(start);
+  await expectReturn();
+  await page.getByRole("tab", { name: "Derechos", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Estado de la novedad" })).toBeVisible();
+  await expectReturn();
+  await page.getByRole("combobox", { name: "Estado de la novedad" }).selectOption("conciliada");
+  const next = page.getByRole("navigation", { name: "Paginación de novedades" }).getByRole("button", { name: "Siguiente" });
+  await next.focus(); await next.press("Enter");
+  await expect(page.getByText("Página 2 · 21 novedades")).toBeVisible();
+  expect(noveltyQueries.at(-1)).toMatchObject({ afiliado: "45", estado: "conciliada", page: "2" });
+  await expect(page.locator("p.text-cifra")).toHaveText("Persona Ficticia");
+  await expectReturn();
+  await page.reload();
+  await expect(page.getByText("Página 2 · 21 novedades")).toBeVisible();
+  await expect(page.locator("p.text-cifra")).toHaveText("Persona Ficticia");
+  expect(activityPages.length).toBeGreaterThan(0);
+  expect(activityPages.every((value) => value === "1")).toBe(true);
+  await returnLink.click();
+  await expect(page).toHaveURL(/\/financiadores\/padron\?financiador=21&estado=administrativas&page=3$/);
+  await page.goBack();
+  await expect(page.getByText("Página 2 · 21 novedades")).toBeVisible();
+  await page.getByRole("tab", { name: "Datos", exact: true }).click();
+  await expectReturn();
+  expect(new URL(page.url()).searchParams.has("novedades_page")).toBe(false);
+  await page.getByRole("tab", { name: "Derechos", exact: true }).click();
+  await expect(page.getByText("Página 1 · 21 novedades")).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Estado de la novedad" })).toHaveValue("");
+});
+
 test("search keeps form mounted and results float without layout movement", async ({ page }) => {
   await scenario(page);
   let liberar;

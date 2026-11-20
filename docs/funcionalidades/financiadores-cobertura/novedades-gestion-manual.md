@@ -23,6 +23,13 @@ La lista agrega `habilitacion_cobertura`: `null` o un resumen con `resultado`, `
 
 Se conserva `personaFija`: prevalece sobre la query y el formulario; no permite cambiar persona. Se conservan los reinicios de borrador, el rechazo de novedades ajenas y las invalidaciones de novedades/ficha.
 
+### Navegación dentro de la ficha
+Novedades embebidas usa `novedades_estado` y `novedades_page`. No consume ni modifica `estado` (filtro del padrón), `page` (actividad de la ficha) o `padron_page` (página de retorno). El acceso global conserva sus parámetros históricos `estado` y `page`; `novedad` sigue identificando el detalle.
+
+Al cambiar de pestaña se limpia sólo la selección y los filtros de Novedades. Al volver al padrón o abrir otra persona se descarta ese contexto interno; el padrón recupera su filtro y su página. Recargar o usar Atrás dentro de Derechos conserva la selección por URL. No se reinterpretan enlaces embebidos antiguos con `estado/page` como filtros de Novedades, porque esas claves pertenecen al padrón y a la actividad.
+
+La regresión de PR #227 se reproduce entrando en Derechos desde un padrón filtrado, seleccionando Conciliada y avanzando a la segunda página. Se verifica que la cabecera siga visible, que la actividad permanezca en su página y que **Volver al padrón** conserve el filtro original. Las pruebas de UI cubren escritorio, móvil, activación por teclado, recarga, Atrás y cambio de pestaña; las pruebas unitarias cubren también el cambio de persona y el contrato global anterior.
+
 No se activan reglas automáticas de OSTEL, bajas, reingresos, gracia, mora, cambios de plan ni efectos familiares, asistenciales o financieros. Las futuras reglas necesitan fuente, versión, vigencia, simulación y activación expresa; esta entrega no implementa ese motor.
 
 ## Verificación

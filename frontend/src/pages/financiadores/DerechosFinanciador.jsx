@@ -25,7 +25,7 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador,
   const [parametros, setParametros] = useSearchParams();
   const contexto = new URLSearchParams(parametros);
   if (afiliadoFijo != null) contexto.set("afiliado", String(afiliadoFijo));
-  const navegacion = parseRightsNavigation(contexto);
+  const navegacion = parseRightsNavigation(contexto, { embedded: afiliadoFijo != null });
   const [busqueda, setBusqueda] = useState(parametros.get("buscar") || "");
   const [consultaAbierta, setConsultaAbierta] = useState(null);
   const afiliadoId = navegacion.affiliateId;
@@ -68,7 +68,7 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador,
   useEffect(() => setBusqueda(textoBusqueda), [textoBusqueda]);
 
   function actualizar(cambios, opciones) {
-    setParametros(updateRightsNavigation(parametros, cambios), opciones);
+    setParametros(updateRightsNavigation(parametros, cambios, { embedded: afiliadoFijo != null }), opciones);
   }
 
   function buscar(event) {
