@@ -1,0 +1,103 @@
+site_name: OSTEL — Seguimiento del proyecto
+site_url: https://i-core-tec.github.io/plexo/
+repo_url: https://github.com/I-CORE-TEC/plexo
+repo_name: I-CORE-TEC/plexo
+edit_uri: edit/main/docs/ostel/
+docs_dir: docs/ostel
+site_dir: site
+
+theme:
+  name: material
+  language: es
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Cambiar a modo oscuro
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Cambiar a modo claro
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.expand
+    - navigation.indexes
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search:
+      lang: es
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - tables
+  - footnotes
+  - pymdownx.details
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.keys
+  - pymdownx.smartsymbols
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Inicio: index.md
+  - Proyecto:
+    - Kick Off: kickoff.md
+    - Equipo: team.md
+    - Metodología: methodology.md
+  - Plan e iniciativas:
+    - Plan del programa y estimaciones: plan.md
+    - Iniciativas: iniciativas.md
+    - Pendientes de OSTEL: pendientes.md
+  - Minutas:
+    - minutas/index.md
+  - Versiones:
+    - versiones/index.md
+    - Versión 001 — Etapa 1 · arranque (en planificación): versiones/version-001.md
+  - Consumo de horas:
+    - horas/index.md
+  - Propuestas:
+    - propuestas/index.md
+  - Plantillas:
+    - plantillas/index.md
+    - Minuta de reunión: plantillas/minuta-reunion.md
+    - Estimación de horas: plantillas/estimacion.md
+    - Caso de prueba base: plantillas/caso-prueba-base.md
+    - Instancia de prueba: plantillas/instancia-prueba.md
+    - Reporte de pruebas: plantillas/reporte-pruebas.md
+    - Acta de cierre: plantillas/acta-cierre.md

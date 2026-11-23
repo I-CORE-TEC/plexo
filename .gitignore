@@ -71,3 +71,6 @@ npm-debug.log*
 # verifica que se genere limpio.
 backend/esquema.yml
 backend/privado/
+
+# Salida local de MkDocs (sitio OSTEL)
+site/
