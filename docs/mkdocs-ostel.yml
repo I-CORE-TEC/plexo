@@ -3,7 +3,7 @@ site_url: https://i-core-tec.github.io/plexo/
 repo_url: https://github.com/I-CORE-TEC/plexo
 repo_name: I-CORE-TEC/plexo
 edit_uri: edit/main/docs/ostel/
-docs_dir: docs/ostel
+docs_dir: ostel
 site_dir: site
 
 theme:

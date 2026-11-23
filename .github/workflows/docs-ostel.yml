@@ -1,6 +1,6 @@
 name: Docs OSTEL
 
-# Publica el sitio de seguimiento del proyecto OSTEL (docs/ostel + mkdocs.yml)
+# Publica el sitio de seguimiento del proyecto OSTEL (docs/ostel + docs/mkdocs-ostel.yml)
 # en GitHub Pages, igual que el sitio de Chaco. Solo corre cuando cambia algo del
 # sitio, para no mezclarse con los workflows del producto.
 on:
@@ -8,8 +8,8 @@ on:
     branches: [main]
     paths:
       - 'docs/ostel/**'
-      - 'mkdocs.yml'
-      - 'requirements-docs.txt'
+      - 'docs/mkdocs-ostel.yml'
+      - 'docs/requirements-ostel.txt'
       - '.github/workflows/docs-ostel.yml'
   workflow_dispatch:
 
@@ -47,7 +47,7 @@ jobs:
       - name: Install documentation dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-docs.txt
+          pip install -r docs/requirements-ostel.txt
 
       # Última puerta antes de publicar: el sitio es público y no puede llevar datos
       # de afiliados (Ley 25.326). Frena la publicación si encuentra algo con forma
@@ -60,7 +60,7 @@ jobs:
           fi
 
       - name: Build docs (strict)
-        run: python -m mkdocs build --strict
+        run: python -m mkdocs build --strict -f docs/mkdocs-ostel.yml
 
       - name: Deploy to GitHub Pages (gh-pages branch)
-        run: python -m mkdocs gh-deploy --force
+        run: python -m mkdocs gh-deploy --force -f docs/mkdocs-ostel.yml
