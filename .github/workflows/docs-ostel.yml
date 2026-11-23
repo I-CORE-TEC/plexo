@@ -1,0 +1,66 @@
+name: Docs OSTEL
+
+# Publica el sitio de seguimiento del proyecto OSTEL (docs/ostel + docs/mkdocs-ostel.yml)
+# en GitHub Pages, igual que el sitio de Chaco. Solo corre cuando cambia algo del
+# sitio, para no mezclarse con los workflows del producto.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/ostel/**'
+      - 'docs/mkdocs-ostel.yml'
+      - 'docs/requirements-ostel.txt'
+      - '.github/workflows/docs-ostel.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: docs-ostel
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # El sitio es público. Con un environment, el dueño del repo puede exigir
+    # aprobación antes de publicar (Settings → Environments → publicacion-docs-ostel
+    # → Required reviewers). Si no se configura, publica directo.
+    environment:
+      name: publicacion-docs-ostel
+      url: https://i-core-tec.github.io/plexo/
+
+    steps:
+      # Actions pineadas por SHA (mismas versiones que el sitio de Chaco): el job
+      # tiene permiso de escritura y publica un sitio público.
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r docs/requirements-ostel.txt
+
+      # Última puerta antes de publicar: el sitio es público y no puede llevar datos
+      # de afiliados (Ley 25.326). Frena la publicación si encuentra algo con forma
+      # de CUIL/CUIT (11 dígitos, con o sin guiones).
+      - name: Sin datos personales
+        run: |
+          if grep -RnE '\b(20|23|24|27|30|33|34)-?[0-9]{8}-?[0-9]\b' docs/ostel; then
+            echo "::error::Hay números con forma de CUIL/CUIT en docs/ostel. No se publica."
+            exit 1
+          fi
+
+      - name: Build docs (strict)
+        run: python -m mkdocs build --strict -f docs/mkdocs-ostel.yml
+
+      - name: Deploy to GitHub Pages (gh-pages branch)
+        run: python -m mkdocs gh-deploy --force -f docs/mkdocs-ostel.yml
