@@ -8,10 +8,10 @@ Delivery: local only, ask-on-risk upon publication; forecast ~300 authored lines
 - S3 — Preserve OSTEL normative continuations #216/#219. No automatic clinical policy, real/shared data, protected manual runtimes/ports, new remote writes, merge or deployment. Any local fix uses existing helpers and dependencies; backend/browser data are new synthetic isolated state.
 
 ## Tasks
-- T1 | S1–S3 | inline setup, delegated long backend checks | complete | focused124 PASS/0 SKIP; app895 PASS +1 static-manifest environment error; corrected Admin recheck PASS; migration/static checks PASS.
-- T2 | S1–S3 | inline real browser verification and missing positive scenario characterization | complete | final full real suite44 PASS/0 FAIL/0 SKIP on fresh v2 synthetic fixtures and the production bundle; Node19/UI40 also pass.
-- T3 | S1–S3 | inline bounded fixes if demonstrated; independent verification only for named high risk | complete | no product defect demonstrated; obsolete real-test presentation assertions updated without changing effects/permissions.
-- T4 | S1–S3 | inline documentation, native assessment and local work-unit delivery | in progress | current closure documented; native medium/under_budget, no review required; recording local work unit.
+- T1 | S1–S3 | inline setup, delegated long backend checks | complete; commit96016ce | focused124 PASS/0 SKIP; app895 PASS +1 static-manifest environment error; corrected Admin recheck PASS; migration/static checks PASS.
+- T2 | S1–S3 | inline real browser verification and missing positive scenario characterization | complete; commit96016ce | final full real suite44 PASS/0 FAIL/0 SKIP on fresh v2 synthetic fixtures and the production bundle; Node19/UI40 also pass.
+- T3 | S1–S3 | inline bounded fixes if demonstrated; independent verification only for named high risk | complete; commit96016ce | no product defect demonstrated; obsolete real-test presentation assertions updated without changing effects/permissions.
+- T4 | S1–S3 | inline documentation, native assessment and local work-unit delivery | complete; commit96016ce plus closure record | current closure documented; committed candidate native medium/under_budget, review_due=false; no native approval claimed.
 
 ## Log
 ### L1 — User request, 2026-11-24
@@ -33,3 +33,6 @@ Final complete real run:44 PASS/0 FAIL/0 SKIP,1.9min, workers1/retries0, desktop
 
 ### L5 — Final backend evidence and closure boundary
 Six-module PostgreSQL focal124 PASS/0 SKIP. Complete Financiadores app896 tests in1264s:895 passed, one Admin staticfiles-manifest error. collectstatic into runner /tmp succeeded; only failed Admin test then passed with its real collected manifest. Parent repeated the exact corrected recheck script successfully; an initial parent label typo was corrected once, not hidden as a product failure. makemigrations --check --dry-run exits0, no changes. All eight reported Novedades/Cobertura concurrency cases ran on PostgreSQL with0skips. No second full app run and no whole-backend run: historical remote backend cancellation remains historical. No product source changed; no human/business acceptance or deployment claimed. Risk: none (verification-only fixtures, isolated test configuration, assertions and documentation; no production contracts, guards, dependencies or stored formats changed).
+
+### L6 — Local delivery
+Work unit96016ce contains tests, fixture, isolated config and current documentation (307 authored changed lines). Native committed assessment: medium/executable_change, review_due=false/under_budget; RDD stays globally on. No START or approval receipt invented. Closure is local on verify/derechos-novedades-cierre-20261124; no push/PR/merge/deploy or GitHub task mutation authorized or performed. S1-S3 complete for the generic increment. OSTEL policy216/219 and remote deployment remain separate, not hidden technical gates. No new product work started without a selected objective.
