@@ -1,5 +1,66 @@
 # Aceptación conjunta: Derechos en la ficha y gestión de Novedades
 
+## Cierre técnico automatizado — 24/11/2026
+
+El responsable pidió completar el incremento sin exigir una validación manual.
+La aceptación humana queda **no realizada y no requerida para este cierre
+técnico**; no se sustituye por una aceptación normativa de OSTEL.
+
+**Incremento genérico verificado técnicamente.** No se demostró un defecto de
+producto que exigiera cambiar reglas, permisos, persistencia o concurrencia.
+
+PR #227 está integrado desde el 20/11. Las menciones históricas de este documento
+a publicación pendiente, ramas sin integrar o aceptación humana como próximo
+paso no describen el estado de este nuevo cierre. El registro actual y sus
+resultados están en `odd/tasks/derechos-novedades-cierre.md`.
+
+Verificación frontend final: **44 recorridos reales aprobados**, sin fallos,
+omisiones ni reintentos, sobre PostgreSQL y el bundle actual, en escritorio y
+móvil. Incluye la consulta positiva de prestaciones y pagos. También pasan las
+pruebas de navegación y ambas suites UI interceptadas. Se corrigieron
+expectativas antiguas de los tests reales: tabla embebida frente a lista global,
+estado en el resumen y ayuda colapsada. No se cambió producto para acomodar tests.
+
+Backend PostgreSQL: los seis módulos pertinentes pasan sus 124 pruebas sin
+omisiones, incluidas decisiones concurrentes. La suite amplia de Financiadores
+ejecutó 896 pruebas: 895 pasaron y una falló por el manifest estático ausente del
+admin en el runner aislado. Después de `collectstatic` en almacenamiento temporal,
+ese único caso pasó en un recheck, repetido por el agente principal. **No se
+presenta como una nueva suite completa de 896 pruebas verdes.** Las comprobaciones
+de migraciones y estáticos pasan. La suite de todo el backend no se repitió;
+tampoco se cambia el resultado cancelado del CI remoto histórico.
+
+### Reproducción aislada
+
+1. Preparar PostgreSQL nuevo con la base `salud_financiadores_test`, settings
+   `config.settings_financiadores_postgres_test` y entorno de demo explícito.
+   No usar bases compartidas ni los datos reservados para pruebas humanas.
+2. Ejecutar migraciones sólo en esa base. Esperar a que terminen antes de crear
+   fixtures. Usar dos manifiestos nuevos de `preparar_novedades_real.py --manual`
+   y otro de `frontend/e2e/fixtures/preparar_consulta_real.py`, todos bajo TEMP.
+   `--manual` describe la estructura del escenario, no una aceptación humana.
+3. Construir el frontend actual y servir ese bundle con proxy al backend
+   aislado. No basta con reutilizar el bundle de un contenedor anterior.
+4. Definir `SALUD_CIERRE_BASE_URL` con un puerto loopback nuevo,
+   `SALUD_NOVEDADES_MANIFEST`, `SALUD_DERECHOS_CONJUNTO_MANIFEST`,
+   `SALUD_CONSULTA_MANIFEST`, `SALUD_DERECHOS_PYTHON` y
+   `SALUD_TEST_POSTGRES_URL`. El intérprete debe tener las mismas versiones de
+   backend y conexión loopback al mismo PostgreSQL sintético.
+5. Desde `frontend`, ejecutar
+   `npx playwright test --config playwright.derechos-cierre.config.js`.
+   La config no inicia ni detiene servidores y rechaza puertos manuales
+   protegidos. Usa un worker, cero reintentos, escritorio y móvil.
+
+El escenario positivo crea una prestación ficticia de 100, cobertura del
+financiador de 80, pago aprobado de 30 y saldo de 50. Reutiliza los servicios de
+reserva, atención y movimiento existentes. La consulta en navegador comprueba
+los importes y que las filas de casos, afiliaciones, reservas, obligaciones y
+movimientos permanezcan iguales. La fixture no admite manifiestos existentes
+ni destinos distintos de la base sintética loopback.
+
+No se habilitan reglas automáticas de bajas, gracia, mora o reingresos. Esas
+definiciones continúan separadas en #216/#219. No se acredita despliegue remoto.
+
 ## Ajuste del selector y del detalle (20/11)
 
 El campo **Prestación y hospital** busca por nombre, código u hospital y permite

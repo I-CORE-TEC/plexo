@@ -40,14 +40,15 @@ test("real embedded registration, reconciliation and decision refresh both modul
   const novelty = await created.json();
   expect(novelty.original.afiliado).toBe(person);
   const dialog = page.getByRole("dialog", { name: `Novedad #${novelty.id}`, exact: true });
-  await expect(dialog).toContainText("Evidencia: Pendiente");
+  const summary = dialog.getByRole("region", { name: "Resumen de la novedad", exact: true });
+  await expect(summary.getByText("Pendiente", { exact: true })).toBeVisible();
   await dialog.getByLabel("Motivo de la decisión").fill("Revisión de evidencia sin cambio de cobertura.");
   const reconciliation = postResponse(page, `/novedades/${novelty.id}/resolver/`);
   await dialog.getByRole("button", { name: "Conciliar sin aplicar efectos" }).click();
   const reconciled = await (await reconciliation).json();
   expect(reconciled.efectos_aplicados).toBe(false);
   expect(reconciled.persona_actual.cobertura_habilitada).toBe(false);
-  await expect(dialog).toContainText("Evidencia: Conciliada");
+  await expect(summary.getByText("Conciliada", { exact: true })).toBeVisible();
   await dialog.getByLabel("Estado de cobertura").selectOption("habilitar");
   await dialog.getByLabel("Motivo de la decisión").fill("Respaldo sintético confirmado para prueba.");
   const decision = postResponse(page, `/novedades/${novelty.id}/habilitacion-cobertura/`);
@@ -59,7 +60,7 @@ test("real embedded registration, reconciliation and decision refresh both modul
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(panel.getByRole("region", { name: "Situación de afiliación" })).toContainText("Habilitada");
-  await expect(panel.getByRole("list", { name: "Novedades registradas" })).toContainText("Aplicada · Habilitada");
+  await expect(panel.getByRole("table", { name: "Novedades registradas" })).toContainText("Aplicada · Habilitada");
   await page.reload();
   await expect(panel).toBeVisible();
   const history = await page.request.get(`/api/financiadores/${org.id}/padron/${person}/historial/`, { headers });
@@ -74,7 +75,7 @@ test("real no-op history and stale evidence remain distinct in affiliate rights"
   const { org } = await setup(page, info);
   const unchanged = org.escenarios.sin_cambios;
   await page.goto(route(org.id, unchanged.afiliado.id));
-  await expect(page.getByRole("list", { name: "Novedades registradas" })).toContainText("Sin cambios · Habilitada");
+  await expect(page.getByRole("table", { name: "Novedades registradas" })).toContainText("Sin cambios · Habilitada");
   await page.getByRole("button", { name: `Ver novedad ${unchanged.novedad}` }).click();
   await expect(page.getByRole("region", { name: "Decisión de cobertura", exact: true })).toContainText("Sin cambios: ya tenía el valor elegido");
   await expect(page.getByText(/Cambio enlazado al historial del padrón/)).toHaveCount(0);
