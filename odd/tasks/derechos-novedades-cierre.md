@@ -36,3 +36,6 @@ Six-module PostgreSQL focal124 PASS/0 SKIP. Complete Financiadores app896 tests 
 
 ### L6 — Local delivery
 Work unit96016ce contains tests, fixture, isolated config and current documentation (307 authored changed lines). Native committed assessment: medium/executable_change, review_due=false/under_budget; RDD stays globally on. No START or approval receipt invented. Closure is local on verify/derechos-novedades-cierre-20261124; no push/PR/merge/deploy or GitHub task mutation authorized or performed. S1-S3 complete for the generic increment. OSTEL policy216/219 and remote deployment remain separate, not hidden technical gates. No new product work started without a selected objective.
+
+### L7 — Cleanup limitation
+The runtime denied the cleanup invocation before execution. No retry or alternative mechanism was used. Four own synthetic containers remain: salud-cierre-20261124-api, salud-cierre-20261124-front, salud-cierre-20261124-backend-test, salud-cierre-20261124-pg. Their two own TEMP directories remain as well. This is a pending operational cleanup, not a failed product check or permission to touch protected runtimes. Local source closure is committed; no publication was performed.
