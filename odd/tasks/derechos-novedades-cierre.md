@@ -1,17 +1,19 @@
 # Derechos and Novedades technical closure
 Objective: close the generic manual increment without requiring human acceptance, preserving separate OSTEL policy debt. Branch: verify/derechos-novedades-cierre-20261124; baseline: 2adcfeea29f491934705c84ac38ff7f1ff091a1c.
-Delivery: local only, ask-on-risk upon publication; forecast ~300 authored lines plus durable real-browser cases if missing. Runners: isolated Docker PostgreSQL/Django, Node and Playwright desktop/mobile.
+Delivery: single focused PR to main, publication/merge and relevant issue moves authorized24Nov; forecast below400 authored changed lines. Runners: isolated Docker PostgreSQL/Django, Node and Playwright desktop/mobile.
 
 ## Specs
 - S1 — «sin que yo valide manualmente, hace todo lo que haya que hacer antes de dar por cerrado derecho y novedades y seguir con otra cosa». Complete necessary technical verification, bounded in-scope fixes and documentation; do not require human acceptance or claim it occurred.
 - S2 — Scope inherited from the preceding closure proposal: validate the final integrated backend/frontend, including positive consultation and recorded-payment browser journeys, evidence/decision separation, conflicts, history, isolation, concurrent obsolete decisions, desktop/mobile and keyboard. Existing deterministic tests are characterization: no fabricated RED for working product.
 - S3 — Preserve OSTEL normative continuations #216/#219. No automatic clinical policy, real/shared data, protected manual runtimes/ports, new remote writes, merge or deployment. Any local fix uses existing helpers and dependencies; backend/browser data are new synthetic isolated state.
+- S4 — «crea un pr con eso , mergealo y move los issuesy prepara todo para cerrar esta sesion». Authorizes publication, merge and moves of issues covered by this generic increment; supersedes only the remote-write/merge restriction of S3. No deployment or normative policy approval is implied.
 
 ## Tasks
 - T1 | S1–S3 | inline setup, delegated long backend checks | complete; commit96016ce | focused124 PASS/0 SKIP; app895 PASS +1 static-manifest environment error; corrected Admin recheck PASS; migration/static checks PASS.
 - T2 | S1–S3 | inline real browser verification and missing positive scenario characterization | complete; commit96016ce | final full real suite44 PASS/0 FAIL/0 SKIP on fresh v2 synthetic fixtures and the production bundle; Node19/UI40 also pass.
 - T3 | S1–S3 | inline bounded fixes if demonstrated; independent verification only for named high risk | complete; commit96016ce | no product defect demonstrated; obsolete real-test presentation assertions updated without changing effects/permissions.
 - T4 | S1–S3 | inline documentation, native assessment and local work-unit delivery | complete; commit96016ce plus closure record | current closure documented; committed candidate native medium/under_budget, review_due=false; no native approval claimed.
+- T5 | S4 | inline publication/merge, read-only delegated issue-scope reconciliation | in progress | one focused PR; check actual CI/merge and preserve unrelated/normative work.
 
 ## Log
 ### L1 — User request, 2026-11-24
@@ -39,3 +41,8 @@ Work unit96016ce contains tests, fixture, isolated config and current documentat
 
 ### L7 — Cleanup limitation
 The runtime denied the cleanup invocation before execution. No retry or alternative mechanism was used. Four own synthetic containers remain: salud-cierre-20261124-api, salud-cierre-20261124-front, salud-cierre-20261124-backend-test, salud-cierre-20261124-pg. Their two own TEMP directories remain as well. This is a pending operational cleanup, not a failed product check or permission to touch protected runtimes. Local source closure is committed; no publication was performed.
+
+### L8 — Publication authorization, 2026-11-24
+crea un pr con eso , mergealo y move los issuesy prepara todo para cerrar esta sesion
+
+Remote canonical repository is now I-CORE-TEC/plexo; main still2adcfeea. Scope is one focused test/documentation PR, then relevant issue transitions based on current criteria. Cleanup remains denied: the new publishing authorization does not bypass that runtime denial. No production deployment is authorized or claimed.
