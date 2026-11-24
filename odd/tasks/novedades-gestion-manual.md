@@ -1,4 +1,6 @@
 # Manual novelty workflow
+Current status (24/11/2026): integrated through PR227; joint technical verification completed without requiring human acceptance. See [technical closure](derechos-novedades-cierre.md) for final evidence, historical failed-run corrections and remaining OSTEL/deployment boundaries. The original execution record below is historical.
+
 Objective: make existing manual operations understandable without provisional OSTEL policy. Branch: juanikitro/DERECHOS-06-prueba-manual; baseline: 9409835. Strategy: ask-on-risk; forecast: approximately 360 authored lines, one coherent unit.
 Runner: Django settings_financiadores_test (isolated in-memory SQLite), own Playwright mock configuration (5195), existing integration UI suite; no manual environment access.
 

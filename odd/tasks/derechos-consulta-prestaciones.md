@@ -1,4 +1,6 @@
 # Affiliate coverage and payment consultation
+Current status (24/11/2026): PR227 merged20Nov. The generic increment is technically verified without mandatory human acceptance, as explicitly requested. Current evidence and limits: [technical closure](derechos-novedades-cierre.md). Deployment is not verified; OSTEL normative approval remains separate. The original delivery state and log below are historical.
+
 Objective: align the affiliate Rights tab with its siblings and expose separate read-only coverage estimates and recorded payment status. Implementation branch: juanikitro/DERECHOS-06-prueba-manual; publication branch: juanikitro/derechos-consulta-pr; baseline: 90fff8f.
 Delivery: single-pr with explicit user-approved size exception (20/11); separate API/UI commits, PR publication authorized, no merge or deployment. New feature estimate: 1038 authored lines; inherited branch range must be reported separately. Runners: Django isolated financier settings and scoped Playwright desktop/mobile; preserve the running human acceptance data.
 

@@ -134,6 +134,12 @@ async function crearAfiliacionSintetica(page, datos, organizacion, { nombre, des
   return afiliado;
 }
 
+async function verifyCoverageExplanation(page) {
+  await page.getByRole("button", { name: "Ayuda: Situación de afiliación", exact: true }).click();
+  await expect(page.getByText("La habilitación requiere una decisión explícita. Fechas, plan, convenio, reglas del servicio, cupos y autorización determinan la cobertura de cada prestación.", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+}
+
 test("operación por persona conserva el alcance y reutiliza la decisión explícita", async ({ page, baseURL }, testInfo) => {
   const datos = await autenticar(page, baseURL);
   const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
@@ -182,7 +188,7 @@ test("operación por persona conserva el alcance y reutiliza la decisión explí
   await expect(page.getByRole("link", { name: "Ver reglas de cobertura", exact: true })).toHaveAttribute(
     "href", `/financiadores/reglas?financiador=${organizacion.id}`,
   );
-  await expect(page.getByText(/no garantizan una prestación ni un pago/i)).toBeVisible();
+  await verifyCoverageExplanation(page);
 
   // La compatibilidad antigua llega al mismo circuito dentro de la ficha.
   await page.getByRole("link", { name: "Ver ficha actual", exact: true }).click();
@@ -190,7 +196,7 @@ test("operación por persona conserva el alcance y reutiliza la decisión explí
   await expect(page.getByRole("tabpanel", { name: "Derechos", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Buscar persona", exact: true })).toHaveCount(0);
 
-  await expect(page.getByRole("list", { name: "Novedades registradas" }).getByText(`#${propuesta.id}`, { exact: false })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Novedades registradas" }).getByText(`#${propuesta.id}`, { exact: false })).toBeVisible();
   await page.getByRole("button", { name: `Ver novedad ${propuesta.id}`, exact: true }).click();
   const detalle = page.getByRole("dialog", { name: `Novedad #${propuesta.id}`, exact: true });
   await expect(detalle).toBeVisible();
@@ -235,7 +241,9 @@ test("Borradores conserva su URL de consulta como configuración secundaria no o
   await expect(detalle.getByRole("button", { name: "Aplicar decisión de cobertura", exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(detalle).toHaveCount(0);
-  const accesoBorradores = page.getByRole("link", { name: "Borradores de derechos (no operativo)", exact: true });
+  const accesoBorradores = page.getByRole("link", { name: "Borradores de derechos", exact: true });
+  await expect(accesoBorradores).toHaveCount(0);
+  await page.getByRole("button", { name: "Ayuda: Situación de afiliación", exact: true }).click();
   await expect(accesoBorradores).toBeVisible();
   await accesoBorradores.click();
   await expect(page).toHaveURL(new RegExp(`/financiadores/borradores\\?financiador=${organizacion.id}`));
@@ -270,7 +278,7 @@ test("las clasificaciones futuras y finalizadas prevalecen visualmente sobre cob
     const situacion = page.getByRole("region", { name: "Situación de afiliación" });
     await expect(situacion.getByText(clasificacion, { exact: true })).toBeVisible();
     await expect(situacion.getByText("Habilitada", { exact: true })).toBeVisible();
-    await expect(situacion.getByText(/no garantizan una prestación ni un pago/i)).toBeVisible();
+    await verifyCoverageExplanation(page);
   }
   expect(escriturasCobertura).toBe(0);
 });

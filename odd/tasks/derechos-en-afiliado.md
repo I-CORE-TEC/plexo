@@ -1,4 +1,6 @@
 # Derechos dentro de cada afiliado
+Estado actual (24/11/2026): integrado mediante PR227; recorrido conjunto real y cierre técnico verificados sin exigir aceptación humana, por instrucción expresa. Evidencia vigente y límites: [cierre técnico](derechos-novedades-cierre.md). El estado original y la bitácora siguientes son históricos; no acreditan despliegue ni aprobación normativa OSTEL.
+
 Objetivo: integrar el circuito existente en la ficha, sin cambiar política ni backend. Base: ebb73c94; rama juanikitro/DERECHOS-06-prueba-manual.
 Estrategia: feature-branch-chain (continuidad local, sin publicación). Runners: Node test y Playwright aislado. Estimación: 250–400 líneas propias.
 
