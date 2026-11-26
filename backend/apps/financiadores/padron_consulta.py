@@ -130,7 +130,7 @@ def _consultar_padron(*, financiador, parametros):
     clave_orden = orden.removeprefix("-")
     if orden and clave_orden not in COLUMNAS_PADRON:
         _invalida()
-    qs = m.Afiliado.objects.filter(financiador=financiador).select_related("plan", "titular", "geografia__provincia", "geografia__partido", "geografia__localidad", "geografia_laboral__provincia", "geografia_laboral__partido", "geografia_laboral__localidad")
+    qs = m.Afiliado.objects.filter(financiador=financiador).select_related("financiador", "plan", "titular", "geografia__provincia", "geografia__partido", "geografia__localidad", "geografia_laboral__provincia", "geografia_laboral__partido", "geografia_laboral__localidad")
     if parametros.get("plan"):
         qs = qs.filter(plan_id=serializers.IntegerField(min_value=1).run_validation(parametros["plan"]))
     derecho = parametros.get("derecho") or parametros.get("estado")
