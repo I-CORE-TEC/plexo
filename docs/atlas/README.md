@@ -2,7 +2,13 @@
 
 El atlas es un HTML autónomo que se abre sin conexión. El piloto mantiene **F1: Cobertura y copago** (incluye reserva, realización y liberación) y **F4: Autorizaciones**. El mapa general y los otros 21 recorridos conservan sus enlaces y se leen como referencia del 25/11/2026. No se considera que el atlas acredite despliegue ni aceptación.
 
-## Abrir el atlas
+## Abrir el atlas en PLEXO
+
+Escriba **/atlas** en la URL de PLEXO. Use la sesión habitual de un superusuario activo, fuera de «Ver como». No hay botón, enlace de menú ni una copia pública en los archivos estáticos. Sin sesión, PLEXO solicita iniciar sesión; con otro perfil, deniega el acceso.
+
+La API verifica los permisos en cada solicitud de contenido y no permite almacenamiento en caché HTTP. El HTML se ejecuta dentro de un marco aislado, sin acceso a la aplicación que lo contiene. El contenido viaja en la imagen del backend, no en la compilación pública del frontend.
+
+## Generar la copia autónoma
 
 Desde la raíz del repositorio, con Python 3.12 o posterior:
 
@@ -15,8 +21,8 @@ Abra el HTML resultante en el navegador. No agregue el archivo generado al PR. N
 
 ## Mantener un recorrido dentro del mismo PR
 
-1. Revise los flujos y rutas vigiladas en [pilot.json](pilot.json). Un cambio de pantalla, actor, decisión o traspaso de datos puede cambiar el recorrido. La lista detecta candidatos, no todas las dependencias.
-2. Si cambia el comportamiento observable, edite [F1](f1.html) y/o [F4](f4.html). Conserve el ID del capítulo y los enlaces que ya se usan. Junto con el cambio, vincule la evidencia en el manifiesto si es un archivo permanente, o describa en el PR el escenario y resultado observado. No copie datos reales.
+1. Revise los flujos y rutas vigiladas en [pilot.json](../../backend/atlas_content/pilot.json). Un cambio de pantalla, actor, decisión o traspaso de datos puede cambiar el recorrido. La lista detecta candidatos, no todas las dependencias.
+2. Si cambia el comportamiento observable, edite [F1](../../backend/atlas_content/f1.html) y/o [F4](../../backend/atlas_content/f4.html). Conserve el ID del capítulo y los enlaces que ya se usan. Junto con el cambio, vincule la evidencia en el manifiesto si es un archivo permanente, o describa en el PR el escenario y resultado observado. No copie datos reales.
 3. Si no cambia el flujo aunque haya rutas vigiladas, escriba una línea por flujo en la descripción del PR. Por ejemplo: `Atlas F1: sin impacto — el refactor no altera actores, decisiones ni pantallas`. No modifique un diagrama sólo para silenciar un aviso.
 4. Genere el HTML y siga las flechas modificadas, sus alternativas y los saltos a otros recorridos. La revisión funcional del PR valida el significado de cada decisión: el comprobador sólo valida estructura y detecta cambios potencialmente relevantes.
 
