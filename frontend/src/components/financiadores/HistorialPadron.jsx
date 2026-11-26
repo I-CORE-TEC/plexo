@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import { api } from "@/api/client";
 import { errorFinanciador, filasDe } from "@/api/financiadores";
 import { POR_PAGINA } from "@/api/queries";
@@ -8,7 +7,6 @@ import { Badge, Button, Spinner } from "@/components/ui";
 import TarjetaFicha from "./TarjetaFicha";
 import { cn } from "@/lib/cn";
 import { fechaHora } from "@/lib/format";
-import { buildRightsNoveltyUrl } from "@/lib/derechosNavigation";
 import { BLOQUES_PADRON, CAMPOS_COBRANZA, CAMPOS_SALUD, CAMPOS_LEGAJO, CAMPOS_FAMILIA, valorCampoPadron } from "./padronCampos";
 
 const CAMPOS = [...BLOQUES_PADRON.flatMap((bloque) => bloque.campos), ...CAMPOS_FAMILIA, ...CAMPOS_LEGAJO, ...CAMPOS_SALUD, ...CAMPOS_COBRANZA];
@@ -32,7 +30,7 @@ function filasCambio(name, cambio) {
     });
 }
 
-export default function HistorialPadron({ ruta, scope, titulo = "Historia administrativa", financierId, affiliateId }) {
+export default function HistorialPadron({ ruta, scope, titulo = "Historia administrativa" }) {
   const [pagina, setPagina] = useState(1);
   const consulta = useQuery({ queryKey: [...scope, "historial", ruta, pagina], queryFn: () => api.get(`${ruta}?${new URLSearchParams({ page: pagina, page_size: POR_PAGINA })}`), gcTime: 0, retry: false });
   return <section aria-label={titulo}><TarjetaFicha titulo={titulo} icono="reloj">
@@ -42,7 +40,6 @@ export default function HistorialPadron({ ruta, scope, titulo = "Historia admini
         <div className="flex flex-wrap items-center gap-2"><Badge tone={evento.tipo === "finalizacion" ? "amber" : evento.tipo === "reactivacion" ? "green" : "info"}>{TIPOS[evento.tipo] || evento.tipo || "Corrección"}</Badge><span className="font-semibold tabular-nums">{fechaHora(evento.registrado)}</span></div>
         <div className="mt-1.5 space-y-0.5 text-texto-debil"><p>Registrado por {evento.usuario_nombre || "Usuario no disponible"}</p>
           {evento.motivo && <p className="text-texto-suave">Motivo: {motivoVisible(evento)}</p>}{evento.origen && <p>Origen: {ORIGENES[evento.origen] || evento.origen}{evento.lote ? evento.origen === "novedad" ? ` · Novedad #${evento.lote}` : ` · Lote ${evento.lote}` : ""}</p>}
-          {evento.origen === "novedad" && evento.lote && financierId && affiliateId && <Link className="inline-block font-medium text-accent hover:underline" to={buildRightsNoveltyUrl({ financierId, affiliateId, noveltyId: evento.lote })}>Ver novedad #{evento.lote}</Link>}
         </div>
         {Object.entries(evento.cambios || {}).length > 0 && <dl className="mt-3 divide-y divide-division overflow-hidden rounded-md border border-division">{Object.entries(evento.cambios).flatMap(([name, cambio]) => filasCambio(name, cambio)).map((fila) => {
           const anterior = valorCampoPadron(fila.campo, fila.anterior);
