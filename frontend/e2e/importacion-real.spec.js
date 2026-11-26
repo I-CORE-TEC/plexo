@@ -30,11 +30,18 @@ async function acceso(page) {
   await page.getByRole("checkbox", { name: "Habilitar cobertura", exact: true }).uncheck();
 }
 
+// #219: el padrón OSTEL del mes se aplica por grupos (aplicar-ostel) con un
+// motivo único; las filas ficticias son personas nuevas, es decir, altas.
+const MOTIVO = "Padrón ficticio E2E del mes";
+const aplicarAltas = (page, n) => page.getByRole("button", { name: `Aplicar altas (${n})`, exact: true });
+
 async function cargar(page, caso) {
   await acceso(page);
   await page.getByLabel("Archivo Excel (.xlsx)", { exact: true }).setInputFiles(caso.archivo);
   await page.getByRole("button", { name: "Revisar archivo", exact: true }).click();
-  await expect(page.getByRole("button", { name: `Importar ${caso.validas} filas válidas`, exact: true })).toBeEnabled();
+  await expect(page.getByRole("tab", { name: `Altas ${caso.validas}`, exact: true })).toBeVisible({ timeout: 60000 });
+  await page.getByLabel("Motivo del lote", { exact: true }).fill(MOTIVO);
+  await expect(aplicarAltas(page, caso.validas)).toBeEnabled();
 }
 
 async function headers(request) {
@@ -59,23 +66,24 @@ async function comprobarPadron(request, caso, cantidad, h) {
   for (const afiliado of padron.results) expect(afiliado.cobertura_habilitada).toBe(false);
 }
 
-test("UI real aplica varias tandas, conserva conflicto y persiste respuesta acotada", async ({ page, request }) => {
+test("UI real aplica altas en varias tandas y conserva el conflicto", async ({ page, request }) => {
   const caso = datos.casos.normal;
   const respuestas = [];
-  await page.route(`**${base}confirmar-importacion/**`, async (route) => {
+  const pedidos = [];
+  await page.route(`**${base}aplicar-ostel/**`, async (route) => {
+    pedidos.push(route.request().postDataJSON());
     const respuesta = await fetchReal(route);
     respuestas.push(await respuesta.json());
     await route.fulfill({ response: respuesta });
   });
   await cargar(page, caso);
-  await page.getByRole("button", { name: `Importar ${caso.validas} filas válidas`, exact: true }).click();
-  await expect(page.getByRole("button", { name: "Importar 0 filas válidas", exact: true })).toBeDisabled({ timeout: 60000 });
-  expect(respuestas.map((r) => r.modo_respuesta)).toEqual(["completa", "cambios", "cambios"]);
-  expect(respuestas[1].filas).toBeUndefined();
-  expect(respuestas[1].filas_cambiadas).toHaveLength(100);
-  expect(respuestas[2].filas_cambiadas).toHaveLength(5);
+  await aplicarAltas(page, caso.validas).click();
+  await expect(aplicarAltas(page, 0)).toBeDisabled({ timeout: 60000 });
+  expect(pedidos.every((p) => p.motivo === MOTIVO && p.grupos.join() === "alta" && p.confirmar_bajas === false)).toBe(true);
+  expect(respuestas.map((r) => r.resumen.pendientes.alta)).toEqual([105, 5, 0]);
+  await page.getByRole("tab", { name: "Conflictos 1", exact: true }).click();
   await expect(page.getByRole("button", { name: "Revisar fila", exact: true })).toHaveCount(1);
-  await page.getByRole("tab", { name: /^Aplicadas/ }).click();
+  await page.getByRole("tab", { name: /^Altas/ }).click();
   await expect(page.getByRole("button", { name: "Ver detalle", exact: true })).toHaveCount(20);
   await page.getByRole("button", { name: "Ver detalle", exact: true }).first().click();
   await page.getByText("Valores originales del archivo", { exact: true }).click();
@@ -92,7 +100,7 @@ test("respuesta perdida después del commit se recupera con reintento explícito
   const caso = datos.casos.respuesta_perdida;
   const respuestas = [];
   const pedidos = [];
-  await page.route(`**${base}confirmar-importacion/**`, async (route) => {
+  await page.route(`**${base}aplicar-ostel/**`, async (route) => {
     pedidos.push(route.request().postDataJSON());
     const respuesta = await fetchReal(route); // API y commit reales.
     respuestas.push(await respuesta.json());
@@ -100,16 +108,15 @@ test("respuesta perdida después del commit se recupera con reintento explícito
     else await route.fulfill({ response: respuesta });
   });
   await cargar(page, caso);
-  await page.getByRole("button", { name: "Importar 205 filas válidas", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "La tanda puede haberse guardado" })).toBeVisible({ timeout: 60000 });
+  await aplicarAltas(page, 205).click();
+  await expect(page.getByRole("alert")).toBeVisible({ timeout: 60000 });
   expect(pedidos).toHaveLength(2);
   const h = await headers(request);
   expect((await persistido(request, respuestas[0].id, h)).resumen.aplicada).toBe(200);
-  await page.getByRole("button", { name: "Importar 105 filas válidas", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Importar 0 filas válidas", exact: true })).toBeDisabled({ timeout: 60000 });
+  // La UI conserva la última respuesta recibida; el reintento aplica sólo lo que falta.
+  await aplicarAltas(page, 105).click();
+  await expect(aplicarAltas(page, 0)).toBeDisabled({ timeout: 60000 });
   expect(pedidos).toHaveLength(3);
-  expect(pedidos[2].huella_lote).toBeUndefined();
-  expect(respuestas[2].modo_respuesta).toBe("completa");
   expect((await persistido(request, respuestas[0].id, h)).resumen.aplicada).toBe(205);
   await comprobarPadron(request, caso, 205, h);
 });
@@ -118,9 +125,9 @@ test("otra sesión excluye una fila y el cliente recupera la evidencia actual", 
   const caso = datos.casos.otra_sesion;
   const h = await headers(request);
   const respuestas = [];
-  await page.route(`**${base}confirmar-importacion/**`, async (route) => {
+  await page.route(`**${base}aplicar-ostel/**`, async (route) => {
     if (respuestas.length === 1) {
-      const fila = respuestas[0].filas.at(-1);
+      const fila = respuestas[0].filas.find((f) => f.estado === "valida");
       const cambio = await request.post(`${base}subsanar-ostel/`, { headers: h, data: {
         importacion: respuestas[0].id, fila: fila.fila, revision: fila.revision, datos: fila.datos,
         motivo: "Exclusión ficticia desde otra sesión", accion: "omitir",
@@ -132,30 +139,25 @@ test("otra sesión excluye una fila y el cliente recupera la evidencia actual", 
     await route.fulfill({ response: respuesta });
   });
   await cargar(page, caso);
-  await page.getByRole("button", { name: "Importar 101 filas válidas", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Importar 0 filas válidas", exact: true })).toBeDisabled({ timeout: 60000 });
-  expect(respuestas.map((r) => r.modo_respuesta)).toEqual(["completa", "completa"]);
+  await aplicarAltas(page, 101).click();
+  await expect(aplicarAltas(page, 0)).toBeDisabled({ timeout: 60000 });
+  expect(respuestas).toHaveLength(2);
   await page.getByRole("tab", { name: /^Excluidas/ }).click();
   await expect(page.getByRole("button", { name: "Ver detalle", exact: true })).toHaveCount(1);
   const lote = await persistido(request, respuestas[0].id, h);
   expect(lote.resumen.aplicada).toBe(100);
   expect(lote.resumen.omitida).toBe(1);
-  expect(lote.filas.at(-1).correcciones.at(-1).motivo).toBe("Exclusión ficticia desde otra sesión");
+  expect(lote.filas.find((f) => f.estado === "omitida").correcciones.at(-1).motivo).toBe("Exclusión ficticia desde otra sesión");
   await comprobarPadron(request, caso, 100, h);
 });
 
-test("frontend acepta confirmaciones tradicionales completas de API real", async ({ page, request }) => {
+test("el lote mensual nunca usa confirmar-importacion", async ({ page, request }) => {
   const caso = datos.casos.completa;
-  const respuestas = [];
-  await page.route(`**${base}confirmar-importacion/**`, async (route) => {
-    const respuesta = await fetchReal(route, { postData: { importacion: route.request().postDataJSON().importacion } });
-    respuestas.push(await respuesta.json());
-    await route.fulfill({ response: respuesta });
-  });
+  let confirmaciones = 0;
+  await page.route(`**${base}confirmar-importacion/**`, (route) => { confirmaciones += 1; return route.abort(); });
   await cargar(page, caso);
-  await page.getByRole("button", { name: "Importar 101 filas válidas", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Importar 0 filas válidas", exact: true })).toBeDisabled({ timeout: 60000 });
-  expect(respuestas).toHaveLength(2);
-  expect(respuestas.every((r) => Array.isArray(r.filas) && !r.modo_respuesta)).toBe(true);
+  await aplicarAltas(page, 101).click();
+  await expect(aplicarAltas(page, 0)).toBeDisabled({ timeout: 60000 });
+  expect(confirmaciones).toBe(0);
   await comprobarPadron(request, caso, 101, await headers(request));
 });

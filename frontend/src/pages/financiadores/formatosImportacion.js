@@ -12,7 +12,7 @@ export const FORMATOS_IMPORTACION = Object.freeze([
   Object.freeze({
     id: "ostel", nombre: "OSTEL",
     tipos: ["padron"], modo: "administrativa",
-    descripcion: "Hojas Hoja1 y afimotook, con las 40 columnas OSTEL: CUILTIT (columna 40) es obligatorio. CUIL y NUMERO identifican individualmente; NROAFI puede compartirse. TIPO distingue activo/pasivo, no vigencia de cobertura. FECVTO no equivale a baja. CUILTIT se conserva como evidencia, pero todavía no se vinculan familias. El importador no interpreta códigos pendientes ni aplica movimientos de baja.",
+    descripcion: "Hojas Hoja1 y afimotook, con las 40 columnas OSTEL: CUILTIT (columna 40) es obligatorio. CUIL y NUMERO identifican individualmente; NROAFI puede compartirse. TIPO distingue activo/pasivo, no vigencia de cobertura. CUILTIT se conserva como evidencia. La vista previa agrupa el padrón del mes en altas, modificaciones, bajas, reingresos y conflictos. FECBAJ o ESTADO=B generan una baja con FECBAJ como fecha de corte; FECVTO nunca es baja.",
     aviso: "La habilitación para personas nuevas se elige al cargar. En personas existentes se conserva la habilitación actual y las diferencias requieren revisión. Las reglas de prestaciones siguen pendientes de OSTEL.",
     recursoRevision: "previsualizar-ostel",
     parametrosPlantilla: (tipo) => ({ tipo, formato: "ostel" }),
@@ -50,12 +50,12 @@ export function guardarFormatoPreferido(usuarioId, tipo, id, almacenamiento) {
 export const COLUMNAS_OSTEL = Object.freeze([
   ["TIPO"], ["NROAFI", "Número de afiliación"], ["CODEMP"], ["CODPAR"], ["APENOM", "Nombre completo"],
   ["TIPODOC"], ["NRODOC", "Documento"], ["CUIL", "CUIL"], ["SEXO", "Sexo"], ["COD_PLAN"],
-  ["FEC_NAC", "Fecha de nacimiento"], ["FECING"], ["FECBAJ", "Marca de baja (bloquea la fila)"], ["FECVTO"], ["MOTIVO"],
+  ["FEC_NAC", "Fecha de nacimiento"], ["FECING"], ["FECBAJ", "Fecha de baja: fin de la afiliación"], ["FECVTO"], ["MOTIVO"],
   ["NROBENE"], ["NROPENS"], ["CARNET"], ["NIV"], ["INCAPA"],
   ["FACTURA"], ["TABVAL"], ["NUMERO", "Número interno"], ["NROREF"], ["A_CALLE", "Calle"],
   ["A_NRO", "Altura"], ["A_PISO", "Piso"], ["A_DPTO", "Departamento"], ["A_TEL1", "Teléfono"], ["CELU1", "Celular"],
   ["EMAIL1", "Email"], ["CODPOS", "Código postal"], ["DESLOCA", "Localidad"], ["CODPROV", "Provincia"], ["CODZON"],
-  ["CODLOCA"], ["CODEST"], ["CODNAC"], ["ESTADO", "Marca de baja si es «B» (bloquea la fila)"], ["CUILTIT"],
+  ["CODLOCA"], ["CODEST"], ["CODNAC"], ["ESTADO", "Baja si es «B» (requiere FECBAJ)"], ["CUILTIT"],
 ]);
 
 // Mismos nombres que ostel_importacion.PROVINCIAS (Georef); el backend los valida.
