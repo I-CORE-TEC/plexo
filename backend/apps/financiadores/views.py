@@ -414,15 +414,14 @@ class FinanciadorViewSet(NovedadesMixin, SimulacionPlazoMixin, BorradoresDerecho
 
     def _afiliado_ficha(self, request, org):
         afiliado_id = entero().run_validation(request.query_params.get("afiliado"))
-        return get_object_or_404(m.Afiliado.objects.select_related("plan"), pk=afiliado_id, financiador=org)
+        return get_object_or_404(m.Afiliado.objects.select_related("plan", "financiador"), pk=afiliado_id, financiador=org)
 
     def _casos_historia(self, org, afiliado):
         # La selección actual es la más reciente sin hecho_revision, igual que clinica.afiliaciones().first().
         actual = m.AfiliacionCaso.objects.filter(caso_id=OuterRef("caso_id"), hecho_revision=None).order_by("-pk")
         convenios = vigencias.convenios_vigentes().filter(financiador=org).values("institucion_id")
         pendientes = actividad_visible(org).filter(afiliado=afiliado, acceso="pendiente_historico").values("caso_id")
-        vigente = (afiliado.cobertura_habilitada and afiliado.finalizado_en is None and afiliado.desde <= timezone.localdate()
-                   and org.activo)
+        vigente = vigencias.tiene_cobertura(afiliado)[0]
         # Resolver la afiliación actual dentro del conjunto del afiliado evita
         # ejecutar subconsultas correlacionadas para todo el padrón de casos.
         candidatos = m.AfiliacionCaso.objects.filter(afiliado=afiliado, hecho_revision=None,
@@ -472,7 +471,7 @@ class FinanciadorViewSet(NovedadesMixin, SimulacionPlazoMixin, BorradoresDerecho
         afiliado = self._afiliado_ficha(request, org)
         casos = list(self.paginate_queryset(self._casos_historia(org, afiliado)))
         convenios = set(vigencias.convenios_vigentes().filter(financiador=org).values_list("institucion_id", flat=True))
-        vigente = afiliado.cobertura_habilitada and afiliado.finalizado_en is None and afiliado.desde <= timezone.localdate() and org.activo
+        vigente = vigencias.tiene_cobertura(afiliado)[0]
         with transaction.atomic():
             registrar_accesos(request, AccesoClinico.Tipo.FINANCIADOR, "financiadores-historia-casos",
                 ({"ciudadano": caso.ciudadano, "institucion_id": caso.institucion_id,
