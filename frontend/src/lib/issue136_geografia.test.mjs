@@ -78,5 +78,19 @@ test("el filtro local conserva orden y coincidencia por subcadena sin distinguir
   const filas = [{ id: 1, nombre: "Mar del Plata" }, { id: 2, nombre: "San Martín" }, { id: 3, nombre: "Córdoba" }];
   assert.deepEqual(filtrarCatalogoGeografico(filas, " MAR ").map((f) => f.id), [1, 2]);
   assert.deepEqual(filtrarCatalogoGeografico(filas, ""), filas);
-  assert.deepEqual(filtrarCatalogoGeografico(filas, "cordoba"), []);
+  assert.deepEqual(filtrarCatalogoGeografico(filas, "cordo").map((f) => f.id), [3]);
+});
+
+test("ignora tildes sin confundir ñ con n, incluso en Unicode descompuesto", () => {
+  const filas = [{ id: 1, nombre: "Córdoba" }, { id: 2, nombre: "Neuquén" }, { id: 3, nombre: "Morón" }, { id: 4, nombre: "Peña" }, { id: 5, nombre: "Peña" }, { id: 6, nombre: "Pena" }, { id: 7, nombre: "Córdoba" }];
+  for (const [texto, ids] of [["cordo", [1, 7]], ["neuquen", [2]], ["moron", [3]], ["pena", [6]], ["peña", [4, 5]], ["peña", [4, 5]], ["CÓRDO", [1, 7]], ["ausente", []]]) {
+    assert.deepEqual(filtrarCatalogoGeografico(filas, texto).map((f) => f.id), ids);
+  }
+});
+
+test("buscar conserva la fila original y sus datos geográficos", () => {
+  const fila = Object.freeze({ id: 9, nombre: "Morón", provincia: 6 });
+  const filas = Object.freeze([fila]);
+  assert.equal(filtrarCatalogoGeografico(filas, "moron")[0], fila);
+  assert.equal(filtrarCatalogoGeografico(filas, ""), filas);
 });

@@ -107,3 +107,33 @@ for (const ancho of [390, 768, 1440]) {
     });
   });
 }
+
+for (const ancho of [390, 1440]) {
+  for (const modo of ["paciente", "afiliación"]) {
+    test(`búsqueda sin tilde en alta de ${modo} a ${ancho}px con teclado`, async ({ page }) => {
+      await page.setViewportSize({ width: ancho, height: 900 });
+      await escenario(page);
+      await page.route("**/api/geografia/lugares/**", (route) => route.fulfill({ json: lista([{ id: 7, nombre: "Córdoba", origen: "georef" }]) }));
+      if (modo === "paciente") {
+        await page.goto("/pacientes?nuevo=1");
+      } else {
+        await page.goto("/financiadores/padron/nuevo?financiador=21");
+        await page.getByRole("textbox", { name: /^Número de documento/ }).fill("30123456");
+        await page.getByRole("textbox", { name: /^Apellidos/ }).fill("Apellido ficticio");
+        await page.getByRole("textbox", { name: /^Nombres/ }).fill("Nombre ficticio");
+        await page.getByRole("textbox", { name: /^Número de afiliado/ }).fill("ISSUE136");
+        await page.getByRole("button", { name: "Siguiente: Afiliación" }).click();
+        await page.getByRole("combobox", { name: /^Plan/ }).selectOption("31");
+        await page.getByRole("textbox", { name: /^Delegación/ }).fill("Sede ficticia");
+        await page.getByRole("textbox", { name: /^Motivo del alta/ }).fill("Alta sintética");
+        await page.getByRole("button", { name: /Siguiente: Contacto/ }).click();
+      }
+      const campo = page.getByRole("combobox", { name: "Provincia", exact: true }).first();
+      await campo.fill("cordo");
+      await expect(page.getByRole("option", { name: "Córdoba", exact: true })).toBeVisible();
+      await campo.press("ArrowDown");
+      await campo.press("Enter");
+      await expect(campo).toHaveValue("Córdoba");
+    });
+  }
+}

@@ -403,3 +403,30 @@ test("editar otro campo del domicilio conserva legado sin convertirlo en manual"
   await expect(page.getByText("Edición ficticia guardada")).toBeVisible();
   expect(cuerpo).toEqual({ calle: "Nuevo detalle ficticio", revision: 1, motivo: "Corrección sintética de calle" });
 });
+
+test("busca nombres acentuados sin tilde y conserva la carga manual", async ({ page }) => {
+  await preparar(page);
+  await page.route("**/api/geografia/lugares/**", (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const results = params.get("tipo") === "provincia"
+      ? [{ id: 1, nombre: "Córdoba" }, { id: 2, nombre: "Neuquén" }, { id: 3, nombre: "Buenos Aires" }]
+      : params.get("tipo") === "partido" && params.get("provincia") === "3"
+        ? [{ id: 31, nombre: "Morón" }]
+        : [];
+    return route.fulfill({ json: { count: results.length, next: null, results } });
+  });
+  await page.reload();
+  const provincia = page.getByRole("combobox", { name: "Provincia", exact: true });
+  for (const [texto, nombre] of [["cordo", "Córdoba"], ["neuquen", "Neuquén"]]) {
+    await provincia.fill(texto);
+    await expect(page.getByRole("option", { name: nombre, exact: true })).toBeVisible();
+  }
+  await provincia.fill("buenos");
+  await elegir(page, "Provincia", "Buenos Aires");
+  const partido = page.getByRole("combobox", { name: "Partido / Departamento / Comuna", exact: true });
+  await partido.fill("moron");
+  await elegir(page, "Partido / Departamento / Comuna", "Morón");
+  await expect(page.getByLabel("Estado sintético")).toHaveText('{"provincia":{"id":3},"partido":{"id":31},"localidad":null}');
+  await partido.fill("Ausente");
+  await expect(page.getByRole("option", { name: "Cargar manualmente", exact: true })).toBeVisible();
+});
