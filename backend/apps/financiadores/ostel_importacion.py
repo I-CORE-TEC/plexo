@@ -1,7 +1,9 @@
 """Carga OSTEL con habilitación elegida por lote para personas nuevas.
 
-Las filas con evidencia de baja no son órdenes de alta ni de finalización.
-Se conservan códigos sin homologar. No se deducen familias, bajas o reingresos.
+Desde #219 (contrato 4) cada fila se clasifica en alta, modificación, baja,
+reingreso o conflicto, y el lote se aplica por grupos con un único motivo.
+Baja sólo con FECBAJ explícita (nunca FECVTO); la ausencia en el lote nunca
+es baja. Se conservan códigos sin homologar. No se deducen familias.
 CUILTIT (entrega del 26/10/2026) se conserva como evidencia; vincular grupos
 familiares queda para #181.
 """
@@ -21,11 +23,18 @@ from openpyxl import load_workbook
 from .models import Afiliado, Financiador, Importacion
 from .ostel_prevalidacion import prevalidar_ostel, ArchivoOstelInvalido, COLUMNAS, MAX_BYTES
 from .permisos import requerir_financiador
-from . import padron
+from . import padron, vigencias
 from .services import auditar, registrar_afiliado
 from .importacion_cobertura import revisar_cobertura, validar_opcion
 
+# Formato de archivo OSTEL (40 columnas). Salud, familias, anotaciones y el
+# ruteo de confirmación identifican los lotes OSTEL por `version == 3`; por
+# eso el contrato de grupos no cambia este número.
 VERSION = 3
+# Contrato de clasificación por grupos (#219), guardado en `resumen["contrato"]`.
+# Un lote sin él es anterior: se lee igual, pero no se aplica por grupos.
+CONTRATO = 4
+GRUPOS = ("alta", "modificacion", "baja", "reingreso")
 CAMPOS = ("numero_interno", "numero", "documento", "cuil", "nombre")
 # Columna OSTEL de cada campo de identidad: el archivo con comentarios marca ahí el error.
 COLUMNA = dict(zip(CAMPOS, ("NUMERO", "NROAFI", "NRODOC", "CUIL", "APENOM")))
@@ -171,9 +180,18 @@ def _ficha_corregida(valores):
 
 def _guardar(lote):
     opcion = lote.resumen.get("cobertura_habilitada")
+    contrato = lote.resumen.get("contrato")
     lote.resumen = {"total": len(lote.filas), **{
         estado: sum(f["estado"] == estado for f in lote.filas)
         for estado in ("valida", "revision", "rechazada", "aplicada", "error_tecnico", "omitida")}}
+    if contrato is not None:
+        lote.resumen["contrato"] = contrato
+        # `grupos` cuenta las filas no omitidas (aplicadas incluidas);
+        # `pendientes`, las válidas que falta aplicar en cada grupo.
+        vivas = [f for f in lote.filas if f["estado"] != "omitida"]
+        lote.resumen["grupos"] = {g: sum(f.get("grupo") == g for f in vivas) for g in (*GRUPOS, "conflicto")}
+        lote.resumen["pendientes"] = {g: sum(f.get("grupo") == g and f["estado"] == "valida" for f in vivas)
+                                      for g in GRUPOS}
     # Filas cuya ficha no se actualiza completa: la UI lo avisa antes de aplicar.
     lote.resumen["advertencias"] = sum(bool(f.get("advertencias")) for f in lote.filas)
     lote.resumen["fuente"] = lote.filas[0]["fuente"] if lote.filas else "base"
@@ -197,6 +215,93 @@ def _marcar(fila, exc):
     # Un error sin columna propia (cobertura, padrón cambiado) es de la persona:
     # se marca en su documento, nunca en toda una columna ajena.
     fila.update(estado="revision", errores=list(exc.messages), columnas_error=_columnas(exc) or [COLUMNA["documento"]])
+    if "grupo" in fila:
+        fila.update(grupo="conflicto", diferencias=[])
+
+
+def _conflicto(texto, *columnas):
+    """Conflicto marcado en columnas OSTEL que no son de identidad (fechas, estado)."""
+    return ValidationError(texto, params={"columnas": columnas})
+
+
+def _fecha(valor, columna):
+    """Fecha de la evidencia `original`: ISO tras _json, o texto tal como vino."""
+    if valor in (None, ""):
+        return None
+    if isinstance(valor, str):
+        texto = valor.strip()
+        try:
+            return datetime.fromisoformat(texto).date()
+        except ValueError:
+            pass
+        try:
+            return datetime.strptime(texto, "%d/%m/%Y").date()
+        except ValueError:
+            pass
+    raise _conflicto(f"{columna} no es una fecha válida.", columna)
+
+
+def _diferencias(obj, d, ficha):
+    """Antes y después de cada campo que la fila cambiaría; vacío = sin cambios."""
+    cambios = [{"campo": k, "anterior": getattr(obj, k), "nuevo": d[k]} for k in CAMPOS if getattr(obj, k) != d[k]]
+    for campo, nuevo in (ficha or {}).items():
+        anterior = getattr(obj, campo)
+        anterior = anterior.isoformat() if isinstance(anterior, date) else (anterior or "")
+        if anterior != nuevo:
+            cambios.append({"campo": campo, "anterior": anterior, "nuevo": nuevo})
+    return cambios
+
+
+def _clasificar(fila, obj, hoy):
+    """Agrupa una fila cuya identidad ya se validó, o levanta su conflicto.
+
+    Baja sólo con evidencia explícita (FECBAJ, ESTADO=B o fuente de bajas) y
+    nunca por FECVTO. Reingreso: un finalizado que vuelve sin evidencia de baja.
+    """
+    original = fila["original"]
+    baja = fila["fuente"] == "bajas" or original.get("ESTADO") == "B" or original.get("FECBAJ") not in (None, "")
+    fila.update(grupo=None, diferencias=[], fecha_baja=None, fecha_ingreso=None, plan_anterior=None)
+    reingreso = not baja and obj is not None and obj.finalizado_en is not None
+    try:
+        ingreso = _fecha(original.get("FECING"), "FECING")
+    except ValidationError:
+        if reingreso:
+            raise _conflicto("Reingreso sin FECING válida.", "FECING") from None
+        ingreso = None  # FECING sólo decide reingresos y bajas anteriores al ingreso.
+    if baja:
+        fecha_baja = _fecha(original.get("FECBAJ"), "FECBAJ")
+        if fecha_baja is None:
+            if original.get("ESTADO") == "B":
+                raise _conflicto("ESTADO indica baja pero falta FECBAJ.", "ESTADO")
+            raise _conflicto("La fila de bajas no tiene FECBAJ.", "FECBAJ")
+        if fecha_baja > hoy:
+            raise _conflicto("FECBAJ es una fecha futura. La baja se carga cuando ocurra.", "FECBAJ")
+        if ingreso and fecha_baja < ingreso:
+            raise _conflicto("FECBAJ es anterior a FECING. Revisá las fechas en el archivo.", "FECBAJ", "FECING")
+        if obj is None:
+            raise _conflicto("Baja de un documento que no está en el padrón.", "FECBAJ")
+        if obj.finalizado_en:
+            raise _conflicto("La afiliación ya está finalizada. La baja no se repite.", "FECBAJ")
+        if obj.desde and fecha_baja < obj.desde:
+            raise _conflicto("FECBAJ es anterior al inicio de la afiliación en el padrón.", "FECBAJ")
+        fila.update(grupo="baja", fecha_baja=fecha_baja.isoformat())
+        return
+    if obj is None:
+        fila["grupo"] = "alta"
+        return
+    if reingreso:
+        if obj.plan is None or not obj.plan.activo:
+            raise _error("Reingreso sin plan anterior activo. Reactivá la afiliación manualmente.", "documento")
+        if ingreso is None:
+            raise _conflicto("Reingreso sin FECING válida.", "FECING")
+        if ingreso > hoy:
+            raise _conflicto("Reingreso con FECING futura.", "FECING")
+        if ingreso <= timezone.localtime(obj.finalizado_en).date():
+            raise _conflicto("FECING no es posterior a la baja anterior.", "FECING")
+        fila.update(grupo="reingreso", fecha_ingreso=ingreso.isoformat(), plan_anterior=obj.plan_id)
+    else:
+        fila["grupo"] = "modificacion"
+    fila["diferencias"] = _diferencias(obj, fila["datos"], fila.get("ficha"))
 
 
 def _validar(fila, lote, repetidos, referencias=None):
@@ -228,16 +333,23 @@ def _validar(fila, lote, repetidos, referencias=None):
             raise _error(f"{campo} pertenece a otra identidad del padrón; no se fusionan personas.", campo)
         if obj and getattr(obj, campo) and getattr(obj, campo) != d[campo]:
             raise _error(f"{campo} contradice el padrón; revisá la identidad antes de aplicar.", campo)
+    agrupado = lote.resumen.get("contrato") == CONTRATO
     if obj:
-        if obj.finalizado_en:
+        if obj.finalizado_en and not agrupado:
             raise _error("Afiliación finalizada: un posible reingreso requiere gestión expresa.", "documento")
         if fila.get("revision_padron", 0) != obj.revision:
             raise _error("El padrón cambió desde la revisión. Revisá y guardá la fila nuevamente.", "documento")
         distintos = [k for k in CAMPOS if getattr(obj, k) != d[k]]
-        if distintos and not fila.get("cambios_revisados"):
+        # Contrato 4: las diferencias limpias se muestran antes/después y se
+        # aplican con el motivo único del lote, sin motivo por fila.
+        if distintos and not agrupado and not fila.get("cambios_revisados"):
             raise _error("Hay diferencias con el padrón actual. Compará los valores y confirmá la corrección con un motivo.", *distintos)
     elif fila.get("revision_padron", 0):
         raise ValidationError("La identidad cambió desde la revisión; volvé a revisar la fila.")
+    if agrupado:
+        _clasificar(fila, obj, timezone.localdate())
+        if fila["grupo"] == "baja":
+            return obj  # Una baja no toca cobertura: la opción del lote rige altas.
     revisar_cobertura(fila, obj, lote.resumen.get("cobertura_habilitada"))
     return obj
 
@@ -250,7 +362,7 @@ def _repetidos(lote):
 def _revisar(lote):
     repetidos = _repetidos(lote)
     referencias = {k: {} for k in ("documento", "numero_interno", "cuil")}
-    for obj in Afiliado.objects.filter(financiador=lote.financiador):
+    for obj in Afiliado.objects.filter(financiador=lote.financiador).select_related("plan"):
         for campo in referencias:
             if getattr(obj, campo):
                 referencias[campo][getattr(obj, campo)] = obj
@@ -315,12 +427,11 @@ def previsualizar(*, financiador, usuario, archivo, clave, fuente="base", cobert
                     error = "Tipos de identificadores no admitidos. Corregí el archivo y volvé a cargarlo."
                     bloqueo = [COLUMNA[k] for k in CAMPOS if not _admitido(raw[COLUMNA[k]])]
                 ficha, advertencias, advertidos = _ficha(raw)
-                if fuente == "bajas" or raw.get("ESTADO") == "B" or raw.get("FECBAJ") is not None:
-                    error = "Evidencia de baja: no se aplica automáticamente. Requiere resolver sus movimientos."
-                    bloqueo = [c for c in ("FECBAJ", "ESTADO") if (raw.get("FECBAJ") is not None if c == "FECBAJ"
-                                                                     else raw.get("ESTADO") == "B")] or ["FECBAJ"]
-                if error:
-                    # Una fila bloqueada nunca se aplica: su ficha no se usa y
+                # Contrato 4: la evidencia de baja ya no bloquea la fila;
+                # _clasificar la agrupa como baja o conflicto.
+                baja = fuente == "bajas" or raw.get("ESTADO") == "B" or raw.get("FECBAJ") is not None
+                if error or baja:
+                    # Una fila bloqueada o de baja nunca aplica su ficha:
                     # advertir sobre ella sólo agregaría ruido.
                     advertencias, advertidos = [], []
                 obj = existentes.get(d["documento"])
@@ -329,7 +440,9 @@ def previsualizar(*, financiador, usuario, archivo, clave, fuente="base", cobert
                               "ficha": ficha, "advertencias": advertencias, "advertidos": advertidos,
                               "revision_padron": obj.revision if obj else 0, "revision": 1,
                               "padron_actual": {k: getattr(obj, k) for k in CAMPOS} if obj else None,
-                              "bloqueo_fuente": error, "columnas_bloqueo": bloqueo, "correcciones": [], "fuente": fuente})
+                              "bloqueo_fuente": error, "columnas_bloqueo": bloqueo, "correcciones": [], "fuente": fuente,
+                              "grupo": "conflicto", "diferencias": [], "fecha_baja": None, "fecha_ingreso": None,
+                              "plan_anterior": None})
     finally:
         libro.close()
     Financiador.objects.select_for_update(no_key=True).get(pk=financiador.pk)
@@ -340,7 +453,8 @@ def previsualizar(*, financiador, usuario, archivo, clave, fuente="base", cobert
         return previo
     lote = Importacion.objects.create(financiador=financiador, tipo="padron", version=VERSION,
         clave=clave, huella=huella, filas=filas, creado_por=usuario,
-        resumen={} if cobertura_habilitada is None else {"cobertura_habilitada": cobertura_habilitada})
+        resumen={"contrato": CONTRATO, **({} if cobertura_habilitada is None
+                                          else {"cobertura_habilitada": cobertura_habilitada})})
     _revisar(lote)
     auditar(usuario, "previsualizar_ostel", lote.pk, financiador=financiador)
     return lote
@@ -403,28 +517,68 @@ def subsanar(*, importacion, usuario, fila, revision, datos, motivo, accion="cor
     return lote
 
 
+def _motivo_lote(motivo):
+    motivo = (motivo or "").strip() if isinstance(motivo, str) or motivo is None else None
+    if not motivo or len(motivo) > 255:
+        raise ValidationError("Registrá un motivo para el lote de hasta 255 caracteres.")
+    return motivo
+
+
 @transaction.atomic
-def aplicar(*, importacion, usuario):
+def aplicar(*, importacion, usuario, grupos=None, motivo=None, confirmar_bajas=False):
+    """Aplica hasta 100 filas válidas por llamada; quien llama repite hasta vaciar `pendientes`.
+
+    Con `grupos` (contrato 4) aplica sólo esos grupos con el `motivo` único del
+    lote; las bajas exigen `confirmar_bajas`. Sin `grupos` conserva la
+    confirmación anterior (`confirmar-importacion`): altas y modificaciones con
+    los motivos fijos de siempre, nunca bajas ni reingresos.
+    """
     requerir_financiador(usuario, importacion.financiador_id, escritura=True)
+    agrupado = grupos is not None
+    if agrupado:
+        if not isinstance(grupos, (list, tuple)) or not grupos or set(grupos) - set(GRUPOS):
+            raise ValidationError("Elegí al menos un grupo: alta, modificacion, baja o reingreso.")
+        motivo = _motivo_lote(motivo)
+        if "baja" in grupos and confirmar_bajas is not True:
+            raise ValidationError("Confirmá explícitamente las bajas del lote.")
     lote = Importacion.objects.select_for_update().get(pk=importacion.pk)
     if lote.version != VERSION or lote.tipo != "padron":
         raise ValidationError("El lote no corresponde al formato administrativo.")
+    contrato = lote.resumen.get("contrato") == CONTRATO
+    if agrupado and not contrato:
+        raise ValidationError("Este lote se preparó antes de los grupos mensuales. Cargá el archivo nuevamente.")
+    if not agrupado:
+        grupos = ("alta", "modificacion")
     Financiador.objects.select_for_update(no_key=True).get(pk=lote.financiador_id)
     repetidos = _repetidos(lote)
-    for fila in [f for f in lote.filas if f["estado"] == "valida"][:100]:
+    elegidas = [f for f in lote.filas if f["estado"] == "valida" and (not contrato or f.get("grupo") in grupos)]
+    for fila in elegidas[:100]:
         try:
             with transaction.atomic():
                 d = fila["datos"]
+                previsto = fila.get("grupo")
                 # Mismo orden de locks que escritores de padrón: financiador, afiliado.
                 list(Afiliado.objects.select_for_update().filter(financiador=lote.financiador,
                                                                documento=d["documento"]))
                 obj = _validar(fila, lote, repetidos)
+                if contrato and fila["grupo"] != previsto:
+                    raise _error("El padrón cambió desde la revisión. Revisá la fila nuevamente.", "documento")
+                if fila.get("grupo") == "baja":
+                    vigencias.finalizar_afiliacion(usuario=usuario, afiliado=obj, motivo=motivo,
+                        fecha=date.fromisoformat(fila["fecha_baja"]), origen="importacion", lote=lote)
+                    fila.update(estado="aplicada", errores=[], columnas_error=[], afiliado=obj.pk)
+                    continue
+                if fila.get("grupo") == "reingreso":
+                    # Plan anterior y FECING ya validados por _clasificar en esta transacción.
+                    obj = vigencias.reactivar_afiliacion(usuario=usuario, afiliado=obj, plan=obj.plan,
+                        motivo=motivo, desde=date.fromisoformat(fila["fecha_ingreso"]),
+                        origen="importacion", lote=lote)
                 if obj is None:
                     obj = registrar_afiliado(financiador=lote.financiador, usuario=usuario,
                         numero=d["numero"], documento=d["documento"], nombre=d["nombre"],
                         plan=None, desde=timezone.localdate(), cobertura_habilitada=lote.resumen.get("cobertura_habilitada", False),
                         solo_crear=True, origen="importacion", lote=lote,
-                        motivo="Alta OSTEL con habilitación seleccionada al revisar el lote")
+                        motivo=motivo or "Alta OSTEL con habilitación seleccionada al revisar el lote")
                 entrada = {k: d[k] for k in ("numero", "nombre", "cuil")}
                 # OSTEL pisa la ficha administrativa; editar_ficha registra el
                 # delta anterior/nuevo en el historial y sube la revisión.
@@ -442,9 +596,9 @@ def aplicar(*, importacion, usuario):
                     obj.save(update_fields=["numero_interno", "revision"])
                     padron.registrar_historial(obj, usuario,
                         {"numero_interno": {"anterior": anterior, "nuevo": obj.numero_interno}},
-                        "Identificación interna OSTEL", "importacion", lote)
+                        motivo or "Identificación interna OSTEL", "importacion", lote)
                 padron.editar_ficha(afiliado=obj, usuario=usuario,
-                    entrada={**entrada, "revision": obj.revision, "motivo": "Carga administrativa OSTEL"},
+                    entrada={**entrada, "revision": obj.revision, "motivo": motivo or "Carga administrativa OSTEL"},
                     origen="importacion", lote=lote)
                 fila.update(estado="aplicada", errores=[], columnas_error=[], afiliado=obj.pk)
         except ValidationError as exc:
@@ -455,6 +609,8 @@ def aplicar(*, importacion, usuario):
                         revision=fila["revision"] + 1)
         except IntegrityError:
             fila.update(estado="revision", errores=["Conflicto concurrente de identidad. Revisá la fila nuevamente."])
+            if "grupo" in fila:
+                fila.update(grupo="conflicto", diferencias=[])
     _guardar(lote)
-    auditar(usuario, "aplicar_ostel", lote.pk, financiador=lote.financiador)
+    auditar(usuario, "aplicar_ostel", lote.pk, financiador=lote.financiador, motivo=motivo or "")
     return lote

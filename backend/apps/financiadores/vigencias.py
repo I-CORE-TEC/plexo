@@ -1,4 +1,6 @@
 """Cierres explícitos: conservan identidades, decisiones y obligaciones anteriores."""
+from datetime import datetime, time
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
@@ -109,45 +111,58 @@ def editar_plan(*, usuario, plan, nombre, activo, motivo, tipo=None):
     return plan
 
 
-def _historial(afiliado, usuario, tipo, motivo):
+def _historial(afiliado, usuario, tipo, motivo, desde=None, origen="manual", lote=None):
     HistorialAfiliacion.objects.create(
         afiliado=afiliado, numero=afiliado.numero, documento=afiliado.documento,
-        plan=afiliado.plan, desde=timezone.localdate(), registrado_por=usuario, tipo=tipo, motivo=motivo,
+        plan=afiliado.plan, desde=desde or timezone.localdate(), registrado_por=usuario, tipo=tipo, motivo=motivo,
+        origen=origen, lote=lote,
     )
 
 
+def _fecha_pasada(valor, texto):
+    if valor is not None and valor > timezone.localdate():
+        raise ValidationError(texto)
+    return valor
+
+
 @transaction.atomic
-def finalizar_afiliacion(*, usuario, afiliado, motivo):
+def finalizar_afiliacion(*, usuario, afiliado, motivo, fecha=None, origen="manual", lote=None):
+    """Sin `fecha` cierra ahora. Con `fecha` (fin administrativo informado por el
+    financiador, p. ej. FECBAJ) la cobertura termina al cierre local de ese día."""
     afiliado = Afiliado.objects.select_for_update().get(pk=afiliado.pk)
     requerir_financiador(usuario, afiliado.financiador_id, escritura=True)
     motivo = _motivo(motivo)
+    fecha = _fecha_pasada(fecha, "La fecha de baja no puede ser futura.")
     if afiliado.finalizado_en:
         if afiliado.motivo_finalizacion == motivo:
             return afiliado
         raise ValidationError("La afiliación ya está finalizada. Su cierre anterior se conserva.")
-    afiliado.finalizado_en, afiliado.finalizado_por, afiliado.motivo_finalizacion = timezone.now(), usuario, motivo
+    cierre = timezone.now() if fecha is None else timezone.make_aware(datetime.combine(fecha, time(23, 59, 59)))
+    afiliado.finalizado_en, afiliado.finalizado_por, afiliado.motivo_finalizacion = cierre, usuario, motivo
     afiliado.revision += 1
     afiliado.save(update_fields=["finalizado_en", "finalizado_por", "motivo_finalizacion", "revision"])
-    _historial(afiliado, usuario, "finalizacion", motivo)
+    _historial(afiliado, usuario, "finalizacion", motivo, fecha, origen, lote)
     auditar(usuario, "finalizar_afiliacion", afiliado.pk, financiador=afiliado.financiador, motivo=motivo)
     return afiliado
 
 
 @transaction.atomic
-def reactivar_afiliacion(*, usuario, afiliado, plan, motivo):
+def reactivar_afiliacion(*, usuario, afiliado, plan, motivo, desde=None, origen="manual", lote=None):
+    """Sin `desde` la vigencia nueva empieza hoy; con `desde` (FECING del reingreso), en esa fecha."""
     afiliado = Afiliado.objects.select_for_update().get(pk=afiliado.pk)
     requerir_financiador(usuario, afiliado.financiador_id, escritura=True)
     motivo = _motivo(motivo)
+    desde = _fecha_pasada(desde, "La fecha de reingreso no puede ser futura.")
     if not afiliado.finalizado_en:
         raise ValidationError("La afiliación ya está vigente.")
     if plan:
         plan = Plan.objects.select_for_update().get(pk=plan.pk)
         if plan.financiador_id != afiliado.financiador_id or not plan.activo:
             raise ValidationError("Elegí un plan activo del financiador.")
-    afiliado.plan, afiliado.desde = plan, timezone.localdate()
+    afiliado.plan, afiliado.desde = plan, desde or timezone.localdate()
     afiliado.finalizado_en, afiliado.finalizado_por, afiliado.motivo_finalizacion = None, None, ""
     afiliado.revision += 1
     afiliado.save(update_fields=["plan", "desde", "finalizado_en", "finalizado_por", "motivo_finalizacion", "revision"])
-    _historial(afiliado, usuario, "reactivacion", motivo)
+    _historial(afiliado, usuario, "reactivacion", motivo, afiliado.desde, origen, lote)
     auditar(usuario, "reactivar_afiliacion", afiliado.pk, financiador=afiliado.financiador, motivo=motivo)
     return afiliado
