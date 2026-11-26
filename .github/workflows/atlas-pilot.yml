@@ -1,0 +1,37 @@
+name: Atlas PLEXO (advisory)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atlas-pilot-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  atlas:
+    name: Atlas pilot (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run atlas checks and build HTML
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python3 -m unittest discover -s docs/atlas -p test_atlas.py
+          python3 docs/atlas/atlas.py build --output "$RUNNER_TEMP/plexo-atlas.html"
+      - name: Check declared flow impact
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only --no-renames -z "$BASE_SHA...$HEAD_SHA" -- > "$RUNNER_TEMP/atlas-changed-paths"
+          python3 docs/atlas/atlas.py review --changes "$RUNNER_TEMP/atlas-changed-paths" --event "$GITHUB_EVENT_PATH"

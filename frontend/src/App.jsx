@@ -12,6 +12,7 @@ const Login = lazy(() => import("./pages/Login"));
 const RecuperarAcceso = lazy(() => import("./pages/CredencialesInstitucionales").then((m) => ({ default: m.RecuperarAcceso })));
 const RestablecerAcceso = lazy(() => import("./pages/CredencialesInstitucionales").then((m) => ({ default: m.RestablecerAcceso })));
 const ConfirmarEmail = lazy(() => import("./pages/CredencialesInstitucionales").then((m) => ({ default: m.ConfirmarEmail })));
+const Atlas = lazy(() => import("./pages/Atlas"));
 const MiCuenta = lazy(() => import("./pages/CredencialesInstitucionales").then((m) => ({ default: m.MiCuenta })));
 const Presentacion = lazy(() => import("./pages/Presentacion"));
 const PortalPaciente = lazy(() => import("./pages/portal/Portal"));
@@ -230,6 +231,7 @@ export default function App() {
       <Route path="/pantalla/:token" element={<PantallaLlamados />} />
       <Route path="/directorio" element={<AuthOnly><Entrada /></AuthOnly>} />
       <Route path="/mi-cuenta" element={<AuthOnly><MiCuenta /></AuthOnly>} />
+      <Route path="/atlas" element={<AuthOnly><Atlas /></AuthOnly>} />
       <Route path="/financiadores/padron/nuevo" element={<AuthOnly><AltaAfiliado /></AuthOnly>} />
       <Route path="/financiadores/padron/:afiliado" element={<AuthOnly><FichaAfiliado /></AuthOnly>} />
       <Route path="/financiadores/:seccion?" element={<AuthOnly><PortalFinanciadores /></AuthOnly>} />
