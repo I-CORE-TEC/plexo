@@ -25,7 +25,9 @@ const PESTANAS = [
   { key: "omitida", label: "Excluidas", incluye: (f) => f.estado === "omitida" },
 ];
 const pendiente = (f) => !["aplicada", "omitida"].includes(f.estado);
-const valor = (v) => v == null || v === "" ? "Sin informar" : String(v);
+// Fechas ISO del archivo (AAAA-MM-DD) se muestran como DD/MM/AAAA.
+const valor = (v) => v == null || v === "" ? "Sin informar"
+  : /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v).split("-").reverse().join("/") : String(v);
 
 function Diferencias({ fila }) {
   if (!fila.diferencias?.length) return <p className="text-texto-debil">Sin cambios de datos.</p>;
@@ -162,7 +164,7 @@ export default function ImportacionAdministrativa({ organizacion, scope, formato
     {lote && mensual && <section className="space-y-4 border-t border-division pt-5" aria-label="Revisión administrativa">
       <p role="status">{lote.resumen.cobertura_habilitada === true ? "Personas nuevas: cobertura habilitada, sujeta a plan, fechas y reglas." : "Personas nuevas: sólo registro administrativo, sin habilitar cobertura."} En personas existentes se conserva la habilitación actual.</p>
       <h3 className="font-semibold">3. Revisá y aplicá cada grupo</h3>
-      <div className="max-w-xl">
+      <div className="w-full max-w-[36rem]">
         <Field label="Motivo del lote" ayuda={`Obligatorio para aplicar. Queda registrado en cada cambio. Hasta ${MOTIVO_MAXIMO} caracteres.`}>
           <Input value={motivo} maxLength={MOTIVO_MAXIMO} required disabled={ocupado} onChange={(e) => setMotivo(e.target.value)} />
         </Field>

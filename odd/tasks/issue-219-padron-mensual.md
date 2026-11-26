@@ -22,10 +22,10 @@ Branch: `feat/issue-219-padron-mensual` (base `origin/main` e93ec13). Delivery: 
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1+T2 | S1, S2, S3 (backend) | delegated writer A (parallel with T4) | done; date-conflict correction in progress | test_ostel_grupos 23 tests; suite 919, same 4 base failures |
-| T4 | S4 | delegated writer B (parallel with T1+T2) | done (uncommitted); docs pending in T5 | node tests 7/7, vite build ok, derechos-ficha e2e 10/10 (Chrome channel) |
-| T3 | S1, S2, S3 (frontend) | delegated writer C | in progress | — |
-| T5 | S5 | parent | pending | — |
+| T1+T2 | S1, S2, S3 (backend) | delegated writer A (parallel with T4) | done 97c3c67, verifier PASS | test_ostel_grupos 23 tests; suite 919, same 4 base failures |
+| T4 | S4 | delegated writer B (parallel with T1+T2) | done 06766ac | node tests 7/7, vite build ok, derechos-ficha e2e 10/10 (Chrome channel) |
+| T3 | S1, S2, S3 (frontend) | delegated writer C | done | mocked 12/12, real 10/10, visible demo |
+| T5 | S5 | parent | done | docs + PR |
 
 Risk: T1+T2 item 1 (bulk changes to existing stored afiliados) → independent verifier.
 
@@ -36,3 +36,4 @@ Risk: T1+T2 item 1 (bulk changes to existing stored afiliados) → independent v
 - L3: Writer B finished T4. Old `/financiadores/novedades` links redirect to the person's padrón history (or padrón list). Deleted specs novedades-gestion-ui, novedades-real, derechos-conjunto-real and config `playwright.novedades-gestion.config.js`; parent cleaned testMatch in derechos-real/conjunto/cierre configs. Unavailable: eslint (no project config); real-backend e2e not run. Pending docs: novedades-gestion-manual.md, derechos-aceptacion-conjunta.md. Risk: item 3 (public route removed; mitigated by redirect).
 - L4: Writer A finished T1+T2. Deviation accepted: `Importacion.version` stays 3 (8 consumers check it); new lots carry `resumen.contrato = 4`; old lots readable, not applicable via `aplicar-ostel`. API: `aplicar-ostel/` {importacion, grupos, motivo, confirmar_bajas}. Correction sent: conflicts for FECBAJ < afiliado.desde and reingreso FECING ≤ previous baja. Writer C launched for T3. Parent wrote docs: new `padron-mensual-ostel.md`, retired `novedades-gestion-manual.md`, note in `derechos-aceptacion-conjunta.md`.
 - L5: Writer C finished T3 (mocked ostel-mensual-ui 12/12 desktop+mobile, financiadores-ui 82/82, node tests 14/14, vite build ok). Parent fixed `familia-ostel-real.spec.js` for the new flow (a re-imported case is a modificación). Real browser+API+PostgreSQL (`playwright.importacion-real.config.js`, disposable Docker postgres:16 on 127.0.0.1:55519, installed Chrome): 10/10 passed. T4 committed 06766ac. RDD globally off → no native review; independent verifier for T1+T2 in progress.
+- L6: Independent verifier: S1–S3 PASS, no blockers; 5 probes added as regression tests (31/31). Advisories kept open: old `confirmar-importacion` still applies altas/modificaciones on contract-4 lots without lot motivo (UI no longer uses it); repeated bajas of already-finalized afiliados become conflicts (product question). Visible real-browser demo on disposable Postgres with a five-group fictitious file: all groups applied; DB shows baja finalizado_en 31/10/2026 23:59, reingreso desde FECING with previous plan, conflict untouched, lot motivo in history. Fixed during demo: lot motivo field collapsed to 20px (theme overrides `max-w-xl`), ISO dates in diffs now DD/MM/AAAA. Mobile 390px: no page overflow. Observation: an existing afiliado whose coverage differs from the lot's "Habilitar cobertura" option is a conflict (pre-existing rule).
