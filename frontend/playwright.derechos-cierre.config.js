@@ -17,8 +17,8 @@ for (const name of ["SALUD_NOVEDADES_MANIFEST", "SALUD_DERECHOS_CONJUNTO_MANIFES
 process.env.SALUD_DERECHOS_MANUAL = "1";
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: ["novedades-real.spec.js", "derechos-operativos-real.spec.js",
-    "derechos-conjunto-real.spec.js", "consulta-prestacion-real.spec.js"],
+  testMatch: ["derechos-operativos-real.spec.js",
+    "consulta-prestacion-real.spec.js"],
   workers: 1, fullyParallel: false, retries: 0, timeout: 120000,
   expect: { timeout: 15000 }, reporter: "list",
   outputDir: join(tmpdir(), "salud-cierre-real-results"),

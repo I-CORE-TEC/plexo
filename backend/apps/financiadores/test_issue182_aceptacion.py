@@ -126,8 +126,9 @@ class Aceptacion182Tests(DatosRespuesta, TransactionTestCase):
         self.assertEqual(Afiliado.objects.count(), 1)
         self.assertFalse(HistorialAfiliacion.objects.exists())
         self.assertEqual(Afiliado.objects.filter(pk=ausente.pk).values().get(), valores)
-        self.assertTrue(all(f["bloqueo_fuente"] and len(f["original"]) == 39
+        # #219: la evidencia de baja se clasifica; sin persona en el padrón queda en conflictos.
+        self.assertTrue(all(f["grupo"] == "conflicto" and f["errores"] and len(f["original"]) == 39
                             and "CODPAR" not in f["original"] for f in respuesta["filas"]))
         original = Importacion.objects.get(pk=actual["id"])
-        self.assertTrue(all(f["bloqueo_fuente"] and len(f["original"]) == 40
+        self.assertTrue(all(f["grupo"] == "conflicto" and len(f["original"]) == 40
                             and "CODPAR" in f["original"] for f in original.filas))

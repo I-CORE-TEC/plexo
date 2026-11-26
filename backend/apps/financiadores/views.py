@@ -846,6 +846,31 @@ class FinanciadorViewSet(NovedadesMixin, SimulacionPlazoMixin, BorradoresDerecho
         response["Cache-Control"] = "private, no-store"
         return response
 
+    @extend_schema(
+        request={"application/json": {"type": "object", "required": ["importacion", "grupos", "motivo"], "properties": {
+            "importacion": {"type": "integer", "minimum": 1},
+            "grupos": {"type": "array", "minItems": 1, "items": {"type": "string", "enum": ["alta", "modificacion", "baja", "reingreso"]}},
+            "motivo": {"type": "string", "maxLength": 255},
+            "confirmar_bajas": {"type": "boolean", "default": False}}}},
+        responses=s.ImportacionSerializer,
+    )
+    @action(detail=True, methods=["post"], url_path="aplicar-ostel")
+    def aplicar_ostel(self, request, pk=None):
+        """Aplica el padrón mensual por grupos (#219): hasta 100 filas por llamada."""
+        from .ostel_importacion import aplicar
+        org = self.organizacion(escritura=True)
+        d = datos(request, {
+            "importacion": serializers.PrimaryKeyRelatedField(queryset=m.Importacion.objects.filter(financiador=org, tipo="padron")),
+            "grupos": serializers.ListField(child=serializers.ChoiceField(choices=["alta", "modificacion", "baja", "reingreso"]),
+                                            allow_empty=False, max_length=4),
+            "motivo": serializers.CharField(max_length=255),
+            "confirmar_bajas": serializers.BooleanField(default=False),
+        })
+        lote = aplicar(usuario=request.user, **d)
+        response = Response(s.ImportacionSerializer(lote).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
     @action(detail=True, methods=["post"], url_path="subsanar-ostel")
     def subsanar_ostel(self, request, pk=None):
         from .ostel_importacion import subsanar

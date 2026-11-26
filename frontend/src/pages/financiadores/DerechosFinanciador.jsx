@@ -6,7 +6,6 @@ import { errorFinanciador, filasDe, opcionesFinanciador, rutaFinanciador } from 
 import { Button, Card, Field, Input, Spinner } from "@/components/ui";
 import { derechoAfiliacionPadron } from "@/components/financiadores/padronTablaEstado";
 import { parseRightsNavigation, updateRightsNavigation } from "@/lib/derechosNavigation";
-import NovedadesFinanciador from "./NovedadesFinanciador";
 import TarjetaFicha from "@/components/financiadores/TarjetaFicha";
 import ConsultaPrestacionModal from "./ConsultaPrestacionModal";
 
@@ -21,11 +20,11 @@ function identidadAfiliado(fila) {
   return fila?.id ?? fila?.afiliado ?? fila?.numero ?? null;
 }
 
-export default function DerechosFinanciador({ organizacion, usuarioId, operador, afiliadoFijo = null }) {
+export default function DerechosFinanciador({ organizacion, usuarioId, afiliadoFijo = null }) {
   const [parametros, setParametros] = useSearchParams();
   const contexto = new URLSearchParams(parametros);
   if (afiliadoFijo != null) contexto.set("afiliado", String(afiliadoFijo));
-  const navegacion = parseRightsNavigation(contexto, { embedded: afiliadoFijo != null });
+  const navegacion = parseRightsNavigation(contexto);
   const [busqueda, setBusqueda] = useState(parametros.get("buscar") || "");
   const [consultaAbierta, setConsultaAbierta] = useState(null);
   const afiliadoId = navegacion.affiliateId;
@@ -67,8 +66,8 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador,
 
   useEffect(() => setBusqueda(textoBusqueda), [textoBusqueda]);
 
-  function actualizar(cambios, opciones) {
-    setParametros(updateRightsNavigation(parametros, cambios, { embedded: afiliadoFijo != null }), opciones);
+  function actualizar(cambios) {
+    setParametros(updateRightsNavigation(parametros, cambios));
   }
 
   function buscar(event) {
@@ -77,15 +76,12 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador,
     siguiente.set("buscar", busqueda.trim());
     siguiente.delete("padron_page");
     siguiente.delete("afiliado");
-    siguiente.delete("novedad");
-    siguiente.delete("estado");
-    siguiente.delete("page");
     setParametros(siguiente);
   }
 
   function seleccionar(id) {
     if (!Number.isSafeInteger(Number(id)) || Number(id) < 1) return;
-    actualizar({ affiliateId: Number(id), noveltyId: null, status: "", page: 1 });
+    actualizar({ affiliateId: Number(id) });
   }
 
   function cambiarPagina(delta) {
@@ -99,7 +95,7 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador,
   return <section aria-label="Derechos por persona" className="space-y-5">
     {afiliadoFijo == null && <header className="space-y-2">
       <h2 className="text-cifra font-bold">Derechos por persona</h2>
-      <p className="text-sm text-texto-suave">Revisá la situación y la evidencia administrativa de esta afiliación. Conciliar evidencia y cambiar la habilitación son decisiones separadas.</p>
+      <p className="text-sm text-texto-suave">Revisá la situación administrativa de esta afiliación. Cambiar la habilitación es una decisión explícita.</p>
     </header>}
 
     {afiliadoFijo == null && <Card className="space-y-4 p-4">
@@ -109,7 +105,7 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador,
         </Field></div>
         <Button type="submit">Buscar persona</Button>
       </form>
-      {(navegacion.invalid || (navegacion.noveltyId != null && afiliadoId == null)) && <p role="alert">El enlace no identifica una afiliación válida para mostrar evidencia. Seleccioná una persona desde la búsqueda.</p>}
+      {navegacion.invalid && <p role="alert">El enlace no identifica una afiliación válida. Seleccioná una persona desde la búsqueda.</p>}
       {textoBusqueda && <>
         {consulta.isFetching ? <Spinner label="Buscando afiliaciones…" /> : consulta.error ? <p role="alert">{errorFinanciador(consulta.error)}</p> : resultado.length ? <>
           <p className="text-sm text-texto-suave">Resultados administrativos, vigentes, futuros y finalizados · {consulta.data?.count ?? resultado.length} coincidencias</p>
@@ -135,15 +131,14 @@ export default function DerechosFinanciador({ organizacion, usuarioId, operador,
     {afiliadoId != null && <>
       {ficha.isLoading ? <Spinner label="Consultando afiliación…" /> : ficha.error ? <p role="alert">{errorFinanciador(ficha.error)}</p> : !personaExacta ? <p role="alert">No se pudo confirmar la identidad de esta afiliación. Volvé a buscar y seleccioná una persona.</p> : <section aria-label="Situación de afiliación"><TarjetaFicha titulo="Situación de afiliación" cuerpoClassName="space-y-4"
         accion={<Button variant="secondary" size="sm" onClick={() => setConsultaAbierta(identidadConsulta)}>Consultar prestación y pago</Button>}
-        descripcion={<><span className="block">Registrar o conciliar evidencia no modifica el padrón, la vigencia ni los derechos.</span><span className="mt-2 block">La habilitación requiere una decisión explícita. Fechas, plan, convenio, reglas del servicio, cupos y autorización determinan la cobertura de cada prestación.</span><span className="mt-2 block">Los borradores permiten preparar versiones y probar plazos. No activan reglas ni producen cambios automáticos: requieren validación antes de su uso operativo.</span><Link className="mt-2 inline-block font-semibold text-accent hover:underline" to={`/financiadores/borradores?financiador=${organizacion.id}`}>Borradores de derechos</Link></>}>
+        descripcion={<><span className="block">La habilitación requiere una decisión explícita. Fechas, plan, convenio, reglas del servicio, cupos y autorización determinan la cobertura de cada prestación.</span><span className="mt-2 block">Los borradores permiten preparar versiones y probar plazos. No activan reglas ni producen cambios automáticos: requieren validación antes de su uso operativo.</span><Link className="mt-2 inline-block font-semibold text-accent hover:underline" to={`/financiadores/borradores?financiador=${organizacion.id}`}>Borradores de derechos</Link></>}>
         <p className="text-sm">{[personaExacta.apellido, personaExacta.nombre].filter(Boolean).join(", ") || personaExacta.nombre_completo || `Afiliado #${afiliadoId}`} · Afiliado #{afiliadoId}</p>
         <dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-sm text-texto-suave">Clasificación</dt><dd>{ETIQUETAS_DERECHO[clasificacion] || "No clasificada"}</dd></div><div><dt className="text-sm text-texto-suave">Plan</dt><dd>{planes.isLoading ? "Consultando…" : nombrePlan}</dd></div><div><dt className="text-sm text-texto-suave">Cobertura habilitada</dt><dd>{personaExacta.cobertura_habilitada === true ? "Habilitada" : personaExacta.cobertura_habilitada === false ? "Deshabilitada" : "No registrado"}</dd></div></dl>
         {planes.error && <p role="status">No se pudo consultar el nombre del plan. La afiliación mantiene su identificador registrado.</p>}
         <div className="flex flex-wrap gap-3">{afiliadoFijo == null && <Link className="font-semibold text-accent hover:underline" to={`/financiadores/padron/${afiliadoId}?financiador=${organizacion.id}`}>Ver ficha actual</Link>}<Link className="font-semibold text-accent hover:underline" to={`/financiadores/reglas?financiador=${organizacion.id}`}>Ver reglas de cobertura</Link>{planId && <Link className="font-semibold text-accent hover:underline" to={`/financiadores/planes?financiador=${organizacion.id}`}>Ver plan</Link>}</div>
       </TarjetaFicha></section>}
       {!ficha.isLoading && !ficha.error && personaExacta && consultaAbierta === identidadConsulta && <ConsultaPrestacionModal key={`consulta:${identidadConsulta}`} organizacion={organizacion} persona={{ ...personaExacta, id: afiliadoId }} scope={scope} cerrar={() => setConsultaAbierta(null)} />}
-      {afiliadoFijo == null && <div className="flex justify-end"><Button variant="secondary" onClick={() => actualizar({ affiliateId: null, noveltyId: null, status: "", page: 1 })}>Limpiar persona seleccionada</Button></div>}
-      {!ficha.isLoading && !ficha.error && personaExacta && <NovedadesFinanciador key={`${organizacion.id}:${afiliadoId}`} organizacion={organizacion} scope={scope} operador={operador} personaFija={afiliadoFijo == null ? null : { ...personaExacta, id: afiliadoId }} />}
+      {afiliadoFijo == null && <div className="flex justify-end"><Button variant="secondary" onClick={() => actualizar({ affiliateId: null })}>Limpiar persona seleccionada</Button></div>}
     </>}
   </section>;
 }

@@ -1632,10 +1632,23 @@ test("historial permite retomar lote desde OSTEL sin cambiar preferencia guardad
 });
 
 
+// #219: el lote OSTEL (contrato 4) se aplica por grupos con aplicar-ostel y un
+// motivo único; los conflictos se subsanan en la misma pantalla.
+const resumenMensual = (filas) => {
+  const vivas = filas.filter((f) => f.estado !== "omitida");
+  const cuenta = (estado) => filas.filter((f) => f.estado === estado).length;
+  return { total: filas.length, valida: cuenta("valida"), revision: cuenta("revision"), aplicada: cuenta("aplicada"), contrato: 4,
+    grupos: Object.fromEntries(["alta", "modificacion", "baja", "reingreso", "conflicto"].map((g) => [g, vivas.filter((f) => f.grupo === g).length])),
+    pendientes: Object.fromEntries(["alta", "modificacion", "baja", "reingreso"].map((g) => [g, vivas.filter((f) => f.grupo === g && f.estado === "valida").length])) };
+};
+
 test("OSTEL aplica válidas y subsana pendientes sin habilitar cobertura", async ({ page }) => {
   await escenario(page);
-  const fila = (n, estado, cuil) => ({ fila: n, fila_excel: n + 1, hoja: "afimotook", revision: 1, estado, errores: estado === "revision" ? ["Documento y CUIL no concuerdan"] : [], bloqueo_fuente: "", datos: { numero_interno: String(n), numero: "FAMILIA", documento: "99018501", cuil, nombre: `PERSONA FICTICIA ${n}` }, original: { CUIL: cuil }, correcciones: [] });
-  let lote = { id: 180, tipo: "padron", version: 3, estado: "preview", filas: [fila(1, "valida", "20990185011"), fila(2, "revision", "123")], resumen: { total: 2, valida: 1, revision: 1, aplicada: 0 } };
+  const fila = (n, estado, cuil) => ({ fila: n, fila_excel: n + 1, hoja: "afimotook", revision: 1, estado, grupo: estado === "revision" ? "conflicto" : "alta", diferencias: [], errores: estado === "revision" ? ["Documento y CUIL no concuerdan"] : [], bloqueo_fuente: "", datos: { numero_interno: String(n), numero: "FAMILIA", documento: "99018501", cuil, nombre: `PERSONA FICTICIA ${n}` }, original: { CUIL: cuil }, correcciones: [] });
+  const conResumen = (l) => ({ ...l, resumen: resumenMensual(l.filas) });
+  let lote = conResumen({ id: 180, tipo: "padron", version: 3, estado: "preview", filas: [fila(1, "valida", "20990185011"), fila(2, "revision", "123")] });
+  const aplicados = [];
+  let confirmaciones = 0;
   await page.route("**/api/financiadores/21/importaciones/**", (route) => route.fulfill({ json: lista([lote]) }));
   await page.route("**/api/financiadores/21/previsualizar-ostel/**", async (route) => {
     expect(route.request().headers()["content-type"]).toContain("multipart/form-data");
@@ -1643,8 +1656,10 @@ test("OSTEL aplica válidas y subsana pendientes sin habilitar cobertura", async
     expect(route.request().postData()).toMatch(/name="cobertura_habilitada"\r?\n\r?\nfalse/);
     return route.fulfill({ json: lote });
   });
-  await page.route("**/api/financiadores/21/confirmar-importacion/**", (route) => {
-    lote = { ...lote, filas: lote.filas.map((f) => f.estado === "valida" ? { ...f, estado: "aplicada" } : f), resumen: { ...lote.resumen, aplicada: lote.resumen.aplicada + lote.resumen.valida, valida: 0 } };
+  await page.route("**/api/financiadores/21/confirmar-importacion/**", (route) => { confirmaciones += 1; return route.fulfill({ status: 400, json: { detail: "No corresponde" } }); });
+  await page.route("**/api/financiadores/21/aplicar-ostel/**", (route) => {
+    aplicados.push(route.request().postDataJSON());
+    lote = conResumen({ ...lote, filas: lote.filas.map((f) => f.estado === "valida" ? { ...f, estado: "aplicada" } : f) });
     return route.fulfill({ json: lote });
   });
   await page.route("**/api/financiadores/21/subsanar-ostel/**", (route) => {
@@ -1654,7 +1669,7 @@ test("OSTEL aplica válidas y subsana pendientes sin habilitar cobertura", async
     expect(d.accion).toBe("corregir");
     // La ficha viaja con la corrección; vacío significa «no actualizar».
     expect(d.ficha).toMatchObject({ email: "", provincia: "", sexo: "" });
-    lote = { ...lote, filas: [lote.filas[0], { ...lote.filas[1], estado: "valida", errores: [], revision: 2, datos: d.datos }], resumen: { total: 2, valida: 1, revision: 0, aplicada: 1 } };
+    lote = conResumen({ ...lote, filas: [lote.filas[0], { ...lote.filas[1], estado: "valida", grupo: "alta", errores: [], revision: 2, datos: d.datos }] });
     return route.fulfill({ json: lote });
   });
   await page.goto("/financiadores/padron?financiador=21");
@@ -1663,16 +1678,18 @@ test("OSTEL aplica válidas y subsana pendientes sin habilitar cobertura", async
   await page.getByLabel("Archivo Excel (.xlsx)", { exact: true }).setInputFiles({ name: "base-ficticia.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("ficticio") });
   await page.getByRole("checkbox", { name: "Habilitar cobertura", exact: true }).uncheck();
   await page.getByRole("button", { name: "Revisar archivo", exact: true }).click();
-  await page.getByRole("button", { name: "Detalle de la fila 3", exact: true }).click();
-  await expect(page.getByRole("tooltip")).toContainText("Documento y CUIL no concuerdan");
-  await page.getByRole("button", { name: "Cerrar ayuda" }).click();
-  await page.getByRole("button", { name: "Importar 1 fila válida", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Importar 0 filas válidas", exact: true })).toBeDisabled();
+  await page.getByRole("tab", { name: "Conflictos 1", exact: true }).click();
+  await expect(page.getByRole("tabpanel")).toContainText("Documento y CUIL no concuerdan");
+  await page.getByRole("tab", { name: /^Altas/ }).click();
+  await page.getByLabel("Motivo del lote", { exact: true }).fill("Padrón ficticio del mes");
+  await page.getByRole("button", { name: "Aplicar altas (1)", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Aplicar altas (0)", exact: true })).toBeDisabled();
+  expect(aplicados).toEqual([{ importacion: 180, grupos: ["alta"], motivo: "Padrón ficticio del mes", confirmar_bajas: false }]);
   await page.getByRole("button", { name: "Importaciones registradas", exact: true }).click();
   await page.getByRole("region", { name: "Importaciones registradas" }).getByRole("button", { name: /Importación 180/ }).click();
-  await page.getByRole("tab", { name: /^Aplicadas/ }).click();
+  await page.getByRole("tab", { name: /^Altas/ }).click();
   await expect(page.getByRole("button", { name: "Ver detalle", exact: true })).toHaveCount(1);
-  await page.getByRole("tab", { name: /^A revisar/ }).click();
+  await page.getByRole("tab", { name: /^Conflictos/ }).click();
   await page.getByRole("button", { name: "Revisar fila", exact: true }).click();
   // La revisión es un diálogo propio: Escape lo cierra sin cerrar la importación.
   await page.keyboard.press("Escape");
@@ -1684,9 +1701,13 @@ test("OSTEL aplica válidas y subsana pendientes sin habilitar cobertura", async
   await page.getByLabel("Motivo de la revisión", { exact: true }).fill("Verificado contra fuente ficticia");
   await page.getByRole("button", { name: "Guardar y revalidar", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "No hay filas en esta categoría." })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Importar 1 fila válida", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Importar 1 fila válida", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Importar 0 filas válidas", exact: true })).toBeDisabled();
+  await page.getByRole("tab", { name: /^Altas/ }).click();
+  // El flujo de carga sigue montado (oculto) detrás del historial: se usa el visible.
+  await page.getByLabel("Motivo del lote", { exact: true }).locator("visible=true").fill("Padrón ficticio del mes");
+  await page.getByRole("button", { name: "Aplicar altas (1)", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Aplicar altas (0)", exact: true })).toBeDisabled();
+  expect(aplicados).toHaveLength(2);
+  expect(confirmaciones).toBe(0);
 });
 
 
@@ -1704,15 +1725,20 @@ for (const formato of ["sistema", "ostel"]) {
       expect(body).not.toContain('name="fuente"');
       claves.push(body.match(/name="clave"\r?\n\r?\n([^\r\n]+)/)?.[1]);
       lote = { id: 281, tipo: "padron", version: formato === "ostel" ? 3 : 2, estado: "preview",
-        resumen: { total: 1, valida: 0, revision: 1, aplicada: 0, cobertura_habilitada: opcion === "true" },
-        filas: [{ fila: 2, fila_excel: 2, hoja: "Hoja1", revision: 1, estado: "revision", errores: ["Conflicto de cobertura"],
+        resumen: { total: 1, valida: 0, revision: 1, aplicada: 0, cobertura_habilitada: opcion === "true", ...(formato === "ostel" ? { contrato: 4, pendientes: { alta: 0, modificacion: 0, baja: 0, reingreso: 0 } } : {}) },
+        filas: [{ fila: 2, fila_excel: 2, hoja: "Hoja1", revision: 1, estado: "revision", errores: ["Conflicto de cobertura"], ...(formato === "ostel" ? { grupo: "conflicto", diferencias: [] } : {}),
           conflicto_cobertura: { actual: opcion !== "true", solicitada: opcion === "true", revision: 1, afiliado: 1 },
           datos: { numero_interno: "1", numero: "1", documento: "99018501", cuil: "20990185019", nombre: "PERSONA FICTICIA" }, original: {}, correcciones: [] }] };
       return route.fulfill({ status: formato === "ostel" ? 200 : 201, json: lote });
     });
     await page.route("**/api/financiadores/21/subsanar-ostel/**", (route) => {
       expect(route.request().postDataJSON().motivo).toBe("Conservar habilitación verificada");
-      lote = { ...lote, resumen: { ...lote.resumen, valida: 1, revision: 0 }, filas: lote.filas.map(f => ({ ...f, estado: "valida", errores: [] })) };
+      lote = { ...lote, resumen: { ...lote.resumen, valida: 1, revision: 0, pendientes: { alta: 0, modificacion: 1, baja: 0, reingreso: 0 } }, filas: lote.filas.map(f => ({ ...f, estado: "valida", errores: [], grupo: "modificacion" })) };
+      return route.fulfill({ json: lote });
+    });
+    await page.route("**/api/financiadores/21/aplicar-ostel/**", (route) => {
+      expect(route.request().postDataJSON()).toEqual({ importacion: 281, grupos: ["modificacion"], motivo: "Padrón ficticio", confirmar_bajas: false });
+      lote = { ...lote, estado: "aplicada", resumen: { ...lote.resumen, valida: 0, aplicada: 1, pendientes: { alta: 0, modificacion: 0, baja: 0, reingreso: 0 } }, filas: lote.filas.map(f => ({ ...f, estado: "aplicada" })) };
       return route.fulfill({ json: lote });
     });
     await page.route("**/api/financiadores/21/confirmar-importacion/**", (route) => {
@@ -1728,10 +1754,14 @@ for (const formato of ["sistema", "ostel"]) {
     await expect(page.getByRole("combobox", { name: "Contenido del archivo" })).toHaveCount(0);
     await page.getByLabel("Archivo Excel (.xlsx)", { exact: true }).setInputFiles({ name: "ficticio.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("ficticio") });
     await page.getByRole("button", { name: "Revisar archivo", exact: true }).click();
-    const detalle = page.getByRole("button", { name: "Detalle de la fila 2", exact: true });
-    await detalle.click();
-    await expect(page.getByRole("tooltip")).toContainText("Conflicto de cobertura");
-    await page.getByRole("button", { name: "Cerrar ayuda" }).click();
+    // OSTEL muestra los errores del conflicto en su grupo; el sistema, en la ayuda de la fila.
+    const detalle = formato === "ostel" ? page.getByRole("tabpanel").getByText("Conflicto de cobertura", { exact: true }) : page.getByRole("button", { name: "Detalle de la fila 2", exact: true });
+    if (formato === "ostel") await expect(detalle).toBeVisible();
+    else {
+      await detalle.click();
+      await expect(page.getByRole("tooltip")).toContainText("Conflicto de cobertura");
+      await page.getByRole("button", { name: "Cerrar ayuda" }).click();
+    }
     await opcion.uncheck();
     await expect(detalle).toHaveCount(0);
     await page.getByRole("button", { name: "Revisar archivo", exact: true }).click();
@@ -1743,7 +1773,10 @@ for (const formato of ["sistema", "ostel"]) {
       await expect(page.getByRole("region", { name: "Subsanar fila", exact: true })).toContainText("se conserva la habilitación actual");
       await page.getByRole("textbox", { name: "Motivo de la revisión", exact: true }).fill("Conservar habilitación verificada");
       await page.getByRole("button", { name: "Guardar y revalidar", exact: true }).click();
-      await page.getByRole("button", { name: "Importar 1 fila válida", exact: true }).click();
+      await page.getByRole("tab", { name: "Modificaciones 1", exact: true }).click();
+      await page.getByLabel("Motivo del lote", { exact: true }).fill("Padrón ficticio");
+      await page.getByRole("button", { name: "Aplicar modificaciones (1)", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Aplicar modificaciones (0)", exact: true })).toBeDisabled();
     } else {
       await expect(page.getByRole("button", { name: "Importar 0 filas válidas", exact: true })).toBeDisabled();
       await page.getByRole("textbox", { name: "Motivo para conservar cobertura actual de fila 2", exact: true }).fill("Conservar habilitación verificada");

@@ -1,5 +1,7 @@
 # Aceptación conjunta: Derechos en la ficha y gestión de Novedades
 
+> **Actualización (#219):** la gestión de Novedades descripta abajo se retiró. Ver [Padrón mensual de OSTEL](padron-mensual-ostel.md). Este documento queda como registro histórico.
+
 ## Cierre técnico automatizado — 24/11/2026
 
 El responsable pidió completar el incremento sin exigir una validación manual.

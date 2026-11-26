@@ -23,9 +23,13 @@ async function cargar(page, caso) {
   await page.getByRole("checkbox", { name: "Habilitar cobertura", exact: true }).uncheck();
   await page.getByLabel("Archivo Excel (.xlsx)", { exact: true }).setInputFiles(datos.casos[caso]);
   await page.getByRole("button", { name: "Revisar archivo", exact: true }).click();
-  await page.getByRole("button", { name: "Importar 2 filas válidas", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Importar 0 filas válidas", exact: true })).toBeDisabled();
-  await page.getByRole("tab", { name: /^Aplicadas/ }).click();
+  // Un caso ya aplicado por otra prueba vuelve como modificación, no como alta.
+  await expect(page.getByRole("tab", { name: /^Conflictos/ })).toBeVisible();
+  const grupo = await page.getByRole("tab", { name: "Altas 2", exact: true }).count() ? "altas" : "modificaciones";
+  await page.getByRole("tab", { name: grupo === "altas" ? "Altas 2" : "Modificaciones 2", exact: true }).click();
+  await page.getByLabel("Motivo del lote", { exact: true }).fill("Padrón ficticio de familias");
+  await page.getByRole("button", { name: `Aplicar ${grupo} (2)`, exact: true }).click();
+  await expect(page.getByRole("button", { name: `Aplicar ${grupo} (0)`, exact: true })).toBeDisabled();
   return page.getByRole("row").filter({ hasText: `Integrante ficticio ${caso}` });
 }
 

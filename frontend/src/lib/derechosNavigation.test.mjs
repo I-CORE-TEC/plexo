@@ -1,72 +1,43 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildRightsNoveltyUrl,
+  buildRightsAffiliateUrl,
   parseRightsNavigation,
+  redirectRetiredNoveltyUrl,
   updateRightsNavigation,
 } from "./derechosNavigation.js";
 
-test("embedded novelty filters and pages never consume ficha or padron parameters", () => {
-  const options = { embedded: true };
-  const original = "financiador=42&afiliado=8&estado=administrativas&page=4&padron_page=3";
-  assert.equal(parseRightsNavigation(original, options).page, 1);
-  const filtered = updateRightsNavigation(original, { status: "conciliada" }, options);
-  const paged = updateRightsNavigation(filtered, { page: 2 }, options);
-  assert.equal(paged.get("estado"), "administrativas");
-  assert.equal(paged.get("page"), "4");
-  assert.equal(paged.get("padron_page"), "3");
-  assert.equal(paged.get("novedades_estado"), "conciliada");
-  assert.equal(paged.get("novedades_page"), "2");
-  assert.deepEqual(parseRightsNavigation(paged, options), {
-    affiliateId: 8, noveltyId: null, status: "conciliada", page: 2, invalid: null,
-  });
-  const changed = updateRightsNavigation(paged, { status: "pendiente" }, options);
-  assert.equal(changed.has("novedades_page"), false);
-  assert.equal(changed.get("page"), "4");
-  const person = updateRightsNavigation(`${paged}&novedad=91`, { affiliateId: 9 }, options);
-  assert.equal(person.has("novedad"), false);
-  assert.equal(person.has("novedades_page"), false);
-  assert.equal(person.get("page"), "4");
-});
-
-test("parses only positive integer identifiers and retains the list context", () => {
-  assert.deepEqual(parseRightsNavigation("?financiador=42&afiliado=8&novedad=91&estado=conciliada&page=3"), {
-    affiliateId: 8,
-    noveltyId: 91,
-    status: "conciliada",
-    page: 3,
-    invalid: null,
-  });
-});
-
-test("malformed affiliate or novelty identifiers are rejected without coercion", () => {
+test("parses only positive integer affiliate identifiers", () => {
+  assert.deepEqual(parseRightsNavigation("?financiador=42&afiliado=8"), { affiliateId: 8, invalid: null });
+  assert.deepEqual(parseRightsNavigation("?financiador=42"), { affiliateId: null, invalid: null });
   assert.equal(parseRightsNavigation("?afiliado=8x").invalid, "afiliado");
-  assert.equal(parseRightsNavigation("?novedad=0").invalid, "novedad");
-  assert.equal(parseRightsNavigation("?novedad=2.5").invalid, "novedad");
+  assert.equal(parseRightsNavigation("?afiliado=0").invalid, "afiliado");
+  assert.equal(parseRightsNavigation("?afiliado=2.5").invalid, "afiliado");
 });
 
-test("changing the status resets pagination and preserves unrelated query context", () => {
-  const query = updateRightsNavigation("?financiador=42&afiliado=8&estado=pendiente&page=4", {
-    status: "conciliada",
-  });
-  assert.equal(query.get("financiador"), "42");
-  assert.equal(query.get("afiliado"), "8");
-  assert.equal(query.get("estado"), "conciliada");
-  assert.equal(query.has("page"), false);
+test("selecting or clearing a person preserves the organization and search context", () => {
+  const selected = updateRightsNavigation("?financiador=42&buscar=perez&padron_page=3", { affiliateId: 8 });
+  assert.equal(selected.get("financiador"), "42");
+  assert.equal(selected.get("buscar"), "perez");
+  assert.equal(selected.get("padron_page"), "3");
+  assert.equal(selected.get("afiliado"), "8");
+  const cleared = updateRightsNavigation(selected, { affiliateId: null });
+  assert.equal(cleared.has("afiliado"), false);
+  assert.equal(cleared.get("financiador"), "42");
 });
 
-test("clearing the selected novelty preserves the person filter and organization", () => {
-  const query = updateRightsNavigation("?financiador=42&afiliado=8&novedad=91&page=2", {
-    noveltyId: null,
-  });
-  assert.equal(query.get("financiador"), "42");
-  assert.equal(query.get("afiliado"), "8");
-  assert.equal(query.has("novedad"), false);
-  assert.equal(query.get("page"), "2");
+test("builds the affiliate ficha URL with exact organization and person identity", () => {
+  assert.equal(buildRightsAffiliateUrl({ financierId: 42, affiliateId: 8 }), "/financiadores/padron/8?financiador=42");
+  assert.equal(buildRightsAffiliateUrl({ financierId: 42, affiliateId: 8, tab: "historial" }),
+    "/financiadores/padron/8?financiador=42&tab=historial");
+  assert.equal(buildRightsAffiliateUrl({ financierId: 42, affiliateId: "8x" }), null);
 });
 
-test("builds a read-only navigation URL with exact organization and person identity", () => {
-  assert.equal(buildRightsNoveltyUrl({ financierId: 42, affiliateId: 8, noveltyId: 91 }),
-    "/financiadores/novedades?financiador=42&afiliado=8&novedad=91");
-  assert.equal(buildRightsNoveltyUrl({ financierId: 42 }), "/financiadores/novedades?financiador=42");
+test("old Novedades deep links redirect to the person's history or to the padron", () => {
+  assert.equal(redirectRetiredNoveltyUrl("?financiador=42&afiliado=8&novedad=91&estado=conciliada&page=2"),
+    "/financiadores/padron/8?financiador=42&tab=historial");
+  assert.equal(redirectRetiredNoveltyUrl("?financiador=42&estado=pendiente"), "/financiadores/padron?financiador=42");
+  assert.equal(redirectRetiredNoveltyUrl("?financiador=42&afiliado=0&novedad=91"), "/financiadores/padron?financiador=42");
+  assert.equal(redirectRetiredNoveltyUrl("?financiador=x&afiliado=8"), "/financiadores/padron");
+  assert.equal(redirectRetiredNoveltyUrl(""), "/financiadores/padron");
 });

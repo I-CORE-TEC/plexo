@@ -86,28 +86,6 @@ function hashBaseAislada() {
   return resultado.stdout.trim();
 }
 
-async function crearNovedadConciliada(page, datos, organizacion) {
-  const creada = await page.request.post(`/api/financiadores/${organizacion.id}/novedades/`, {
-    headers: datos.headers,
-    data: {
-      clave: randomUUID(), afiliado: organizacion.afiliado, fuente: "Prueba sintética de Derechos",
-      referencia: `DERECHOS-${randomUUID()}`, codigo: `D-${randomUUID()}`,
-      descripcion: "Evidencia creada por la prueba operativa aislada.", motivo: "Preparar una decisión explícita de prueba.",
-    },
-  });
-  expect(creada.status()).toBe(201);
-  const propuesta = await creada.json();
-  const conciliada = await page.request.post(`/api/financiadores/${organizacion.id}/novedades/${propuesta.id}/resolver/`, {
-    headers: datos.headers,
-    data: {
-      accion: "conciliar", motivo: "Revisión sintética de evidencia.", revision: propuesta.revision,
-      revision_padron: propuesta.persona_actual.revision, confirmar_conflictos: false,
-    },
-  });
-  expect(conciliada.status()).toBe(200);
-  return propuesta;
-}
-
 async function crearAfiliacionSintetica(page, datos, organizacion, { nombre, desde, finalizar = false }) {
   const clave = randomUUID();
   const respuesta = await page.request.post(`/api/financiadores/${organizacion.id}/padron/`, {
@@ -140,20 +118,12 @@ async function verifyCoverageExplanation(page) {
   await page.keyboard.press("Escape");
 }
 
-test("operación por persona conserva el alcance y reutiliza la decisión explícita", async ({ page, baseURL }, testInfo) => {
+test("operación por persona conserva el alcance sin el panel de novedades retirado", async ({ page, baseURL }, testInfo) => {
   const datos = await autenticar(page, baseURL);
   const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
-  const propuesta = await crearNovedadConciliada(page, datos, organizacion);
-  const fichaAntes = await page.request.get(
-    `/api/financiadores/${organizacion.id}/ficha-afiliado/?${new URLSearchParams({ afiliado: organizacion.afiliado, page: 1, page_size: 10 })}`,
-    { headers: datos.headers },
-  );
-  expect(fichaAntes.ok()).toBeTruthy();
-  const coberturaAnterior = (await fichaAntes.json()).afiliado.cobertura_habilitada;
-  const coberturaObjetivo = !coberturaAnterior;
-  let escriturasDeCobertura = 0;
+  const consultasNovedades = [];
   page.on("request", (request) => {
-    if (request.method() === "POST" && request.url().includes("/habilitacion-cobertura/")) escriturasDeCobertura += 1;
+    if (request.url().includes("/novedades/")) consultasNovedades.push(request.url());
   });
 
   await page.goto(`/financiadores/derechos?financiador=${organizacion.id}`);
@@ -196,51 +166,21 @@ test("operación por persona conserva el alcance y reutiliza la decisión explí
   await expect(page.getByRole("tabpanel", { name: "Derechos", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Buscar persona", exact: true })).toHaveCount(0);
 
-  await expect(page.getByRole("table", { name: "Novedades registradas" }).getByText(`#${propuesta.id}`, { exact: false })).toBeVisible();
-  await page.getByRole("button", { name: `Ver novedad ${propuesta.id}`, exact: true }).click();
-  const detalle = page.getByRole("dialog", { name: `Novedad #${propuesta.id}`, exact: true });
-  await expect(detalle).toBeVisible();
-  expect(escriturasDeCobertura).toBe(0);
-  await detalle.getByLabel("Estado de cobertura").selectOption(coberturaObjetivo ? "habilitar" : "deshabilitar");
-  await detalle.getByLabel("Motivo de la decisión").fill("Decisión explícita de prueba desde Derechos.");
-  const guardadaPromise = page.waitForResponse((response) => response.request().method() === "POST"
-    && response.url().endsWith(`/novedades/${propuesta.id}/habilitacion-cobertura/`));
-  await detalle.getByRole("button", { name: "Aplicar decisión de cobertura", exact: true }).click();
-  const guardada = await guardadaPromise;
-  expect(guardada.status()).toBe(200);
-  const resultado = await guardada.json();
-  expect(resultado.habilitacion_cobertura.cobertura_habilitada).toBe(coberturaObjetivo);
-  expect(escriturasDeCobertura).toBe(1);
-
-  const fichaDespues = await page.request.get(
-    `/api/financiadores/${organizacion.id}/ficha-afiliado/?${new URLSearchParams({ afiliado: organizacion.afiliado, page: 1, page_size: 10 })}`,
-    { headers: datos.headers },
-  );
-  expect((await fichaDespues.json()).afiliado.cobertura_habilitada).toBe(coberturaObjetivo);
-  const historial = await page.request.get(`/api/financiadores/${organizacion.id}/padron/${organizacion.afiliado}/historial/`, { headers: datos.headers });
-  expect(historial.ok()).toBeTruthy();
-  expect((await historial.json()).results).toContainEqual(expect.objectContaining({ lote: propuesta.id, origen: "novedad" }));
-  await expect(detalle.getByRole("link", { name: "Ver historial", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Situación de afiliación" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Novedades registradas" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Registrar novedad", exact: true })).toHaveCount(0);
+  expect(consultasNovedades).toEqual([]);
 });
 
 test("Borradores conserva su URL de consulta como configuración secundaria no operativa", async ({ page, baseURL }, testInfo) => {
-  const preparacion = await autenticar(page, baseURL, "operador");
-  const organizacion = preparacion.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
-  const propuesta = await crearNovedadConciliada(page, preparacion, organizacion);
   const datos = await autenticar(page, baseURL, "auditor");
+  const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
   await page.goto(`/financiadores/derechos?financiador=${organizacion.id}`);
   await expect(page.getByRole("navigation", { name: "Menú del financiador" }).getByRole("link", { name: "Derechos", exact: true })).toHaveCount(0);
   await page.getByLabel("Buscar persona por documento, número o nombre").fill(organizacion.documento);
   await page.getByRole("button", { name: "Buscar persona", exact: true }).click();
   await page.getByRole("button", { name: `Seleccionar afiliado #${organizacion.afiliado}`, exact: true }).click();
-  await page.getByRole("button", { name: `Ver novedad ${propuesta.id}`, exact: true }).click();
-  const detalle = page.getByRole("dialog", { name: `Novedad #${propuesta.id}`, exact: true });
-  await expect(detalle).toBeVisible();
-  await expect(detalle.getByLabel("Estado de cobertura")).toHaveCount(0);
-  await expect(detalle.getByLabel("Motivo de la decisión")).toHaveCount(0);
-  await expect(detalle.getByRole("button", { name: "Aplicar decisión de cobertura", exact: true })).toHaveCount(0);
-  await page.keyboard.press("Escape");
-  await expect(detalle).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Situación de afiliación" })).toBeVisible();
   const accesoBorradores = page.getByRole("link", { name: "Borradores de derechos", exact: true });
   await expect(accesoBorradores).toHaveCount(0);
   await page.getByRole("button", { name: "Ayuda: Situación de afiliación", exact: true }).click();
@@ -349,7 +289,7 @@ test("un fallo al escribir el manifiesto revierte toda la preparación estándar
   expect(resultados.map(({ antes, despues }) => despues === antes)).toEqual([true, true]);
 });
 
-test("la preparación manual separa actores y conserva el flujo explícito de decisión", async ({ page, baseURL }, testInfo) => {
+test("la preparación manual separa actores y conserva la historia de novedades sin la pantalla retirada", async ({ page, baseURL }, testInfo) => {
   test.skip(!process.env.SALUD_DERECHOS_MANUAL, "Requiere un manifiesto separado con --manual.");
   const datos = await autenticarManual(page, baseURL, "operador");
   const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
@@ -387,34 +327,17 @@ test("la preparación manual separa actores y conserva el flujo explícito de de
   expect(conciliacion.habilitacion_cobertura).toBeFalsy();
   expect((await (await ficha(escenarios.decision.afiliado.id)).json()).afiliado.cobertura_habilitada).toBe(false);
 
-  await page.goto(`/financiadores/derechos?financiador=${organizacion.id}&afiliado=${escenarios.decision.afiliado.id}&novedad=${escenarios.decision.novedad}`);
-  const dialogo = page.getByRole("dialog", { name: `Novedad #${escenarios.decision.novedad}`, exact: true });
-  await expect(dialogo).toBeVisible();
+  // El enlace viejo con novedad abre sólo la situación de la persona: no hay
+  // diálogo ni controles de decisión, y nada escribe cobertura.
   let escrituras = 0;
   page.on("request", (request) => {
     if (request.method() === "POST" && request.url().includes("/habilitacion-cobertura/")) escrituras += 1;
   });
-  await expect(dialogo.getByLabel("Estado de cobertura")).toBeVisible();
+  await page.goto(`/financiadores/derechos?financiador=${organizacion.id}&afiliado=${escenarios.decision.afiliado.id}&novedad=${escenarios.decision.novedad}`);
+  await expect(page.getByRole("region", { name: "Situación de afiliación" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByLabel("Estado de cobertura")).toHaveCount(0);
   expect(escrituras).toBe(0);
-  await dialogo.getByLabel("Estado de cobertura").selectOption("habilitar");
-  await dialogo.getByLabel("Motivo de la decisión").fill("Decisión manual sintética revisada.");
-  const guardada = page.waitForResponse((response) => response.request().method() === "POST"
-    && response.url().endsWith(`/novedades/${escenarios.decision.novedad}/habilitacion-cobertura/`));
-  await dialogo.getByRole("button", { name: "Aplicar decisión de cobertura", exact: true }).click();
-  const respuesta = await guardada;
-  expect(respuesta.status()).toBe(200);
-  const resultado = await respuesta.json();
-  expect(resultado.habilitacion_cobertura.cobertura_habilitada).toBe(true);
-  expect(resultado.habilitacion_cobertura.historial_id).toBeTruthy();
-  expect(escrituras).toBe(1);
-  const historia = await page.request.get(
-    `/api/financiadores/${organizacion.id}/padron/${escenarios.decision.afiliado.id}/historial/`,
-    { headers: datos.headers },
-  );
-  expect(historia.ok()).toBeTruthy();
-  expect((await historia.json()).results).toContainEqual(expect.objectContaining({
-    id: resultado.habilitacion_cobertura.historial_id, lote: escenarios.decision.novedad, origen: "novedad",
-  }));
 
   const aplicada = await (await detalle(escenarios.aplicada.novedad)).json();
   expect(aplicada.habilitacion_cobertura.resultado).toBe("cambiada");
@@ -430,9 +353,13 @@ test("la preparación manual separa actores y conserva el flujo explícito de de
   expect((await historiaSinCambios.json()).results).not.toContainEqual(expect.objectContaining({
     lote: escenarios.sin_cambios.novedad, origen: "novedad",
   }));
+  await page.goto(`/financiadores/padron/${escenarios.aplicada.afiliado.id}?financiador=${organizacion.id}&tab=historial`);
+  const historiaAplicada = page.getByRole("region", { name: "Historia administrativa" });
+  await expect(historiaAplicada).toContainText(`Novedad #${escenarios.aplicada.novedad}`);
+  await expect(historiaAplicada.getByRole("link", { name: /Ver novedad/ })).toHaveCount(0);
 });
 
-test("evidencia manual obsoleta se rechaza sin efectos y se distinguen vigencia e historia desconocida", async ({ page, baseURL }, testInfo) => {
+test("evidencia manual obsoleta se rechaza sin efectos y se distinguen las vigencias", async ({ page, baseURL }, testInfo) => {
   test.skip(!process.env.SALUD_DERECHOS_MANUAL, "Requiere un manifiesto separado con --manual.");
   const datos = await autenticarManual(page, baseURL, "operador");
   const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
@@ -462,23 +389,16 @@ test("evidencia manual obsoleta se rechaza sin efectos y se distinguen vigencia 
   const finalizada = await abrirPersonaManual(page, organizacion, escenarios.finalizada);
   await expect(finalizada.getByText("Finalizada", { exact: true })).toBeVisible();
   await expect(finalizada.getByText("Habilitada", { exact: true })).toBeVisible();
-  const historica = escenarios.historica;
-  await page.goto(`/financiadores/derechos?financiador=${organizacion.id}&afiliado=${historica.afiliado.id}&novedad=${historica.novedad}`);
-  const detalleHistorico = page.getByRole("dialog", { name: `Novedad #${historica.novedad}`, exact: true });
-  await expect(detalleHistorico).toBeVisible();
-  await expect(detalleHistorico.getByText(/Cobertura: No registrado/)).toBeVisible();
 });
 
-test("el auditor manual consulta evidencia sin controles de decisión", async ({ page, baseURL }, testInfo) => {
+test("el auditor manual llega desde un enlace viejo de Novedades al historial sin controles de decisión", async ({ page, baseURL }, testInfo) => {
   test.skip(!process.env.SALUD_DERECHOS_MANUAL, "Requiere un manifiesto separado con --manual.");
   const datos = await autenticarManual(page, baseURL, "auditor");
   const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
   const decision = organizacion.escenarios.decision;
-  await page.goto(`/financiadores/derechos?financiador=${organizacion.id}&afiliado=${decision.afiliado.id}&novedad=${decision.novedad}`);
-  const detalle = page.getByRole("dialog", { name: `Novedad #${decision.novedad}`, exact: true });
-  await expect(detalle).toBeVisible();
-  await expect(detalle.getByRole("link", { name: "Ver historial", exact: true })).toBeVisible();
-  await expect(detalle.getByLabel("Estado de cobertura")).toHaveCount(0);
-  await expect(detalle.getByLabel("Motivo de la decisión")).toHaveCount(0);
-  await expect(detalle.getByRole("button", { name: "Aplicar decisión de cobertura", exact: true })).toHaveCount(0);
+  await page.goto(`/financiadores/novedades?financiador=${organizacion.id}&afiliado=${decision.afiliado.id}&novedad=${decision.novedad}`);
+  await expect(page).toHaveURL(new RegExp(`/financiadores/padron/${decision.afiliado.id}\\?financiador=${organizacion.id}&tab=historial$`));
+  await expect(page.getByRole("region", { name: "Historia administrativa" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Aplicar decisión de cobertura", exact: true })).toHaveCount(0);
 });

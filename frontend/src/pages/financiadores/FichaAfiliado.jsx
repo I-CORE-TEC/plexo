@@ -16,13 +16,12 @@ import DetalleAutorizacion, { EstadoAutorizacion, PaginasAutorizacion } from "./
 import { ESTADOS } from "./ActividadFinanciador";
 import { estadoCaso } from "@/lib/dominio";
 import { parametrosListado } from "@/lib/padronNavigation";
-import { buildRightsNoveltyUrl } from "@/lib/derechosNavigation";
 import { NOMBRE_SISTEMA } from "@/lib/marca";
 import FichaPadronAdministrativa from "@/components/financiadores/FichaPadronAdministrativa";
 import TarjetaFicha from "@/components/financiadores/TarjetaFicha";
 import { COLUMNAS_PADRON, derechoAfiliacionPadron, valorColumnaPadron } from "@/components/financiadores/padronTablaEstado";
 import DerechosFinanciador from "./DerechosFinanciador";
-import { ROLES, itemsFinanciador, accesoFinanciador } from "./menuFinanciador";
+import { ROLES, itemsFinanciador } from "./menuFinanciador";
 
 const COLUMNA_DERECHO = COLUMNAS_PADRON.find((columna) => columna.key === "derecho");
 
@@ -208,9 +207,6 @@ function FichaAfiliadoContenido() {
   const tab = pestanas.some((item) => item.key === pedida) ? pedida : "datos";
   function cambiarTab(valor) {
     const nuevos = new URLSearchParams(parametros);
-    if (tab === "derechos" || valor === "derechos") {
-      for (const campo of ["afiliado", "novedad", "novedades_estado", "novedades_page"]) nuevos.delete(campo);
-    }
     if (valor === "datos") nuevos.delete("tab");
     else nuevos.set("tab", valor);
     setParametros(nuevos, { replace: true });
@@ -231,7 +227,6 @@ function FichaAfiliadoContenido() {
         {persona && <div className="flex flex-wrap items-center gap-2">
           <Badge tone={{ vigentes: "green", administrativas: "amber", finalizadas: "gray", futuras: "info" }[derecho] || "neutral"}>{valorColumnaPadron(persona, COLUMNA_DERECHO)}</Badge>
           {pendientes.data?.count > 0 && <Badge tone="amber">{plural(pendientes.data.count, "autorización pendiente", "autorizaciones pendientes")}</Badge>}
-          {id && <Link className="rounded-md border border-borde px-3 py-2 text-sm font-medium text-accent hover:bg-superficie-2" to={buildRightsNoveltyUrl({ financierId: id, affiliateId: persona.id })}>Ver novedades de esta persona</Link>}
         </div>}
       </div>
       {persona && <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-division pt-4 text-sm sm:grid-cols-3 lg:grid-cols-5">{[["N.º de afiliado", persona.numero], ["Documento", persona.documento], ["Plan", persona.plan_nombre || "Sin plan"], ["Desde", fecha(persona.desde)], ...(persona.finalizado_en ? [["Finalizada", fechaHora(persona.finalizado_en)]] : [])].map(([label, valor]) => <div key={label} className="min-w-0"><dt className="text-xs font-medium uppercase tracking-wide text-texto-debil">{label}</dt><dd className="mt-1 break-words font-medium tabular-nums">{valor}</dd></div>)}</dl>}
@@ -239,7 +234,7 @@ function FichaAfiliadoContenido() {
     {organizaciones.isLoading ? <Spinner label="Consultando financiador…" /> : organizaciones.error ? <ErrorFicha error={organizaciones.error} reintentar={organizaciones.refetch} /> : !organizacion ? <Card><EstadoVacio titulo="No tenés acceso al financiador seleccionado" /></Card> : <>
     <div className="overflow-x-auto"><Tabs variant="underline" tabs={pestanas} valor={tab} onChange={cambiarTab} className="min-w-max" /></div>
     <div role="tabpanel" aria-label={pestanas.find((item) => item.key === tab).label} className="space-y-4">
-    {tab === "derechos" && <DerechosFinanciador key={`${id}:${afiliado}`} organizacion={organizacion} usuarioId={user.id} operador={accesoFinanciador(user, organizacion).operador} afiliadoFijo={afiliado} />}
+    {tab === "derechos" && <DerechosFinanciador key={`${id}:${afiliado}`} organizacion={organizacion} usuarioId={user.id} afiliadoFijo={afiliado} />}
     {tab === "datos" && administrativa("datos")}
     {tab === "legajo" && administrativa("legajo")}
     {tab === "historia" && <HistoriaFinanciador key={`${id}:${afiliado}`} id={id} afiliado={afiliado} scope={scope} />}
