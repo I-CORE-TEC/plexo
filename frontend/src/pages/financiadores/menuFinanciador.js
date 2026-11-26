@@ -5,7 +5,6 @@ export const SECCIONES = [
   { key: "inicio", label: "Inicio", icon: "home" },
   { key: "planes", label: "Planes", icon: "layers" },
   { key: "derechos", label: "Derechos", icon: "idCard", menu: false },
-  { key: "borradores", label: "Borradores de derechos", icon: "fileText", menu: false },
   { key: "reglas", label: "Reglas de cobertura", icon: "clipboard" },
   { key: "aranceles", label: "Aranceles", icon: "list" },
   { key: "padron", label: "Padrón de afiliados", icon: "idCard" },
@@ -26,7 +25,7 @@ export function accesoFinanciador(usuario, organizacion) {
   return { plataforma, admin, operador: admin || organizacion?.rol === "operador" };
 }
 
-export function puedeAccederBorradoresLegados(organizacion) {
+export function puedeAccederSeccionOculta(organizacion) {
   return Object.hasOwn(ROLES, organizacion?.rol);
 }
 

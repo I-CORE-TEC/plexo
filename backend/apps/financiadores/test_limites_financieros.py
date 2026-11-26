@@ -37,21 +37,8 @@ class LimitesFinancierosTests(CoberturaSetup, APITestCase):
             financiador=self.otra, institucion=self.institucion,
             propuesto_por="financiador", creado_por=otro_usuario,
         )
-        for org, cliente, afiliado in (
-            (self.financiador, self.client, self.afiliado),
-            (self.otra, self.cliente_b, self.afiliado_b),
-        ):
+        for afiliado in (self.afiliado, self.afiliado_b):
             m.CobranzaPadron.objects.create(afiliado=afiliado)
-            regla = dict(codigo="plazo-ficticio", version=1, fuente="Fuente ficticia",
-                         regimen="dependencia", plan_id=None, desde="2030-01-01",
-                         hasta=None, plazo_dias_corridos=7)
-            respuesta = cliente.post(
-                f"/api/financiadores/{org.pk}/borradores-derechos/",
-                dict(propuesta=[regla], motivo="Caracterización ficticia",
-                     regimen="dependencia", plan_id=None, fecha="2030-01-08"),
-                format="json",
-            )
-            self.assertEqual(respuesta.status_code, 200, respuesta.data)
         self.reservar(acepta=True)
         self.atencion()
         self.assertEqual(
@@ -64,7 +51,6 @@ class LimitesFinancierosTests(CoberturaSetup, APITestCase):
             aprobado=True, referencia="Movimiento completamente ficticio",
         )
         self.assertEqual(MovimientoDinero.objects.get().importe, Decimal("5.00"))
-        self.assertEqual(m.BorradorReglaDerechos.objects.count(), 2)
         self.assertEqual(m.ReservaCobertura.objects.count(), 1)
         self.base = f"/api/financiadores/{self.financiador.pk}/"
         self.base_b = f"/api/financiadores/{self.otra.pk}/"
