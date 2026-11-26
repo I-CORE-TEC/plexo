@@ -14,7 +14,7 @@ import ImportacionFinanciador from "./ImportacionFinanciador";
 import EditarFichaPadron from "@/components/financiadores/EditarFichaPadron";
 import PadronTabla from "@/components/financiadores/PadronTabla";
 import { parametrosConsultaPadron, obtenerColumnasPadron, estadoDerechoPadron } from "@/components/financiadores/padronTablaEstado";
-import { ROLES, SECCIONES, accesoFinanciador, itemsFinanciador, puedeAccederBorradoresLegados } from "./menuFinanciador";
+import { ROLES, SECCIONES, accesoFinanciador, itemsFinanciador, puedeAccederSeccionOculta } from "./menuFinanciador";
 import ExportarPadron from "@/components/financiadores/ExportarPadron";
 import { ADMINISTRATIVOS, TIPOS_PLAN } from "@/components/financiadores/padronCampos";
 import { parametrosFicha } from "@/lib/padronNavigation";
@@ -22,7 +22,6 @@ import { redirectRetiredNoveltyUrl } from "@/lib/derechosNavigation";
 import ActividadFinanciador from "./ActividadFinanciador";
 import AutorizacionesFinanciador from "./AutorizacionesFinanciador";
 import FacturasFinanciador from "./FacturasFinanciador";
-import BorradoresDerechos from "./BorradoresDerechos";
 import DerechosFinanciador from "./DerechosFinanciador";
 import { POR_PAGINA } from "@/api/queries";
 import { NOMBRE_SISTEMA } from "@/lib/marca";
@@ -61,7 +60,7 @@ export default function PortalFinanciadores() {
   // La redirección a Inicio conserva la query completa; los ítems del menú, sólo el financiador.
   const query = parametros.toString() ? `?${parametros}` : "";
   const items = itemsFinanciador({ organizacion, plataforma, sufijo });
-  const actual = items.find((item) => item.key === seccion) || (["borradores", "derechos"].includes(seccion) && puedeAccederBorradoresLegados(organizacion) ? SECCIONES.find((item) => item.key === seccion) : null);
+  const actual = items.find((item) => item.key === seccion) || (seccion === "derechos" && puedeAccederSeccionOculta(organizacion) ? SECCIONES.find((item) => item.key === seccion) : null);
   const irAlDirectorio = plataforma && !seleccion && seccion !== "catalogo" && !organizaciones.isLoading && !organizaciones.error;
   useEffect(() => { if (irAlDirectorio && institucion) setInstitucion(null); }, [irAlDirectorio, institucion, setInstitucion]);
   // Novedades manual fue retirada (#219): sus enlaces viejos no deben romper.
@@ -83,7 +82,7 @@ export default function PortalFinanciadores() {
     {organizaciones.isLoading ? <Spinner label="Consultando financiadores…" /> : organizaciones.error ? <ErrorPortal error={organizaciones.error} reintentar={organizaciones.refetch} /> : plataforma && seccion === "catalogo" ? <CatalogoGlobal usuarioId={user.id} /> : organizacion ? seccion === "derechos" ? <DerechosFinanciador key={`${user.id}:${organizacion.id}`} organizacion={organizacion} usuarioId={user.id} /> : seccion === "usuarios" && organizacion.rol !== "admin" && organizacion.puede_designar_admin_inicial === true && plataforma ? <AdminInicial key={organizacion.id} organizacion={organizacion} onGuardado={async (resultado) => {
       setActivacionInicial(resultado.activacion || null);
       await qc.invalidateQueries({ queryKey: ["financiadores", user.id, "organizaciones"] });
-    }} /> : seccion === "borradores" ? <BorradoresDerechos key={`${user.id}:${organizacion.id}`} organizacion={organizacion} usuarioId={user.id} /> : seccion === "facturas" ? <FacturasFinanciador key={`${user.id}:${organizacion.id}`} organizacion={organizacion} usuarioId={user.id} /> : <EspacioFinanciador key={`${user.id}:${organizacion.id}:${seccion}`} organizacion={organizacion} usuarioId={user.id} plataforma={plataforma} tab={seccion} /> : <Card><EstadoVacio titulo={seleccion ? "No tenés acceso al financiador seleccionado" : "Todavía no tenés un financiador asignado"} detalle={seleccion && lista.length ? "Elegí un financiador disponible en el directorio." : "El administrador de tu organización puede habilitar tu acceso."} /></Card>}
+    }} /> : seccion === "facturas" ? <FacturasFinanciador key={`${user.id}:${organizacion.id}`} organizacion={organizacion} usuarioId={user.id} /> : <EspacioFinanciador key={`${user.id}:${organizacion.id}:${seccion}`} organizacion={organizacion} usuarioId={user.id} plataforma={plataforma} tab={seccion} /> : <Card><EstadoVacio titulo={seleccion ? "No tenés acceso al financiador seleccionado" : "Todavía no tenés un financiador asignado"} detalle={seleccion && lista.length ? "Elegí un financiador disponible en el directorio." : "El administrador de tu organización puede habilitar tu acceso."} /></Card>}
   </div>;
   if (plataforma) return <Shell plataforma>{cuerpo}</Shell>;
   return <Shell financiador={{

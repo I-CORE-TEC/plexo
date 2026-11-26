@@ -172,7 +172,7 @@ test("operación por persona conserva el alcance sin el panel de novedades retir
   expect(consultasNovedades).toEqual([]);
 });
 
-test("Borradores conserva su URL de consulta como configuración secundaria no operativa", async ({ page, baseURL }, testInfo) => {
+test("la ayuda de Situación de afiliación no ofrece borradores retirados", async ({ page, baseURL }, testInfo) => {
   const datos = await autenticar(page, baseURL, "auditor");
   const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
   await page.goto(`/financiadores/derechos?financiador=${organizacion.id}`);
@@ -184,17 +184,7 @@ test("Borradores conserva su URL de consulta como configuración secundaria no o
   const accesoBorradores = page.getByRole("link", { name: "Borradores de derechos", exact: true });
   await expect(accesoBorradores).toHaveCount(0);
   await page.getByRole("button", { name: "Ayuda: Situación de afiliación", exact: true }).click();
-  await expect(accesoBorradores).toBeVisible();
-  await accesoBorradores.click();
-  await expect(page).toHaveURL(new RegExp(`/financiadores/borradores\\?financiador=${organizacion.id}`));
-  await expect(page.getByRole("heading", { name: "Borradores de reglas de derechos", exact: true })).toBeVisible();
-  await expect(page.getByText("Módulo de configuración no operativa", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Guardar borrador", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Volver a Derechos", exact: true })).toHaveAttribute(
-    "href", `/financiadores/derechos?financiador=${organizacion.id}`,
-  );
-  await page.getByRole("link", { name: "Volver a Derechos", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/financiadores/derechos\\?financiador=${organizacion.id}`));
+  await expect(page.getByRole("link", { name: "Borradores de derechos", exact: true })).toHaveCount(0);
 });
 
 test("las clasificaciones futuras y finalizadas prevalecen visualmente sobre cobertura habilitada", async ({ page, baseURL }, testInfo) => {
@@ -223,7 +213,7 @@ test("las clasificaciones futuras y finalizadas prevalecen visualmente sobre cob
   expect(escriturasCobertura).toBe(0);
 });
 
-test("una identidad sin membresía no abre Derechos ni la URL histórica de Borradores", async ({ page, baseURL }, testInfo) => {
+test("una identidad sin membresía no abre Derechos", async ({ page, baseURL }, testInfo) => {
   const datos = await autenticar(page, baseURL, "sin_membresia");
   const organizacion = datos.organizaciones[testInfo.project.name === "mobile-chromium" ? 1 : 0];
   const accesosOrganizacion = [];
@@ -233,7 +223,7 @@ test("una identidad sin membresía no abre Derechos ni la URL histórica de Borr
     }
   });
 
-  for (const ruta of ["derechos", "borradores"]) {
+  for (const ruta of ["derechos"]) {
     await page.goto(`/financiadores/${ruta}?financiador=${organizacion.id}`);
     await expect(page.getByText("No tenés acceso al financiador seleccionado", { exact: true })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Menú del financiador" }).getByRole("link", { name: "Derechos", exact: true })).toHaveCount(0);

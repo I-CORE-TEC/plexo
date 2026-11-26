@@ -1,13 +1,17 @@
 """Cobertura administrativa. No constituye una historia clínica compartida."""
 import uuid
+from datetime import date
 
 from django.conf import settings
 from django.core.validators import MaxValueValidator
-from .derechos_borrador import MAX_DIAS_CORRIDOS
 from django.db import models
 from django.db.models import Q
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
+
+
+# Upper bound for calendar-day terms; kept stable because migration 0019 encodes it.
+MAX_DIAS_CORRIDOS = (date.max - date.min).days
 
 
 class Financiador(models.Model):

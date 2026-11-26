@@ -190,6 +190,9 @@ Si no hay ninguna, la prestación no está cubierta por esa cobertura.
 
 ### Afiliación del caso
 
+- Quién tiene cobertura se decide con una sola regla: cobertura habilitada,
+  afiliación sin finalizar, fecha de alta cumplida y financiador activo. Ver
+  [Derechos de cobertura](derechos.md).
 - La afiliación elegida al ingresar **se conserva durante ese caso**, aunque
   después cambie o venza. Una corrección expresa queda registrada y no modifica
   cargos anteriores.

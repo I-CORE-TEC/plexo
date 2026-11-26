@@ -5,8 +5,7 @@ from django.db import connection, transaction, IntegrityError
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
 from apps.accounts.models import Usuario
-from .models import Financiador, BorradorReglaDerechos
-from .derechos_borrador import MAX_DIAS_CORRIDOS
+from .models import Financiador, BorradorReglaDerechos, MAX_DIAS_CORRIDOS
 
 
 @skipUnless(connection.vendor == "postgresql", "Requiere PostgreSQL ficticio dedicado.")

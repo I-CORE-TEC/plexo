@@ -8,7 +8,7 @@
 
 **Estados:** :material-circle:{ style="color: #dc2626" } Abierto · :material-circle:{ style="color: #f59e0b" } Respuesta parcial · :material-circle:{ style="color: #16a34a" } Cerrado (con email de confirmación)
 
-**Última actualización:** 23/11/2026
+**Última actualización:** 26/11/2026
 
 ---
 
@@ -35,7 +35,7 @@
 | P-10 | Confirmar el vínculo del grupo familiar: NROREF o exportación con CUILTIT | Armar el grupo familiar | Afiliaciones / Padrón | 21/10/2026 | — | :material-circle:{ style="color: #dc2626" } |
 | P-11 | Fuente oficial del padrón y de las bajas, y si cada archivo es foto o movimientos del período | Evitar doble conteo | Afiliaciones / Padrón | 21/10/2026 | — | :material-circle:{ style="color: #dc2626" } |
 | P-12 | Exportación de afiliados en trámite (Futuros Afiliados) | Migrar el estado "en trámite" | Afiliaciones / Padrón | 21/10/2026 | — | :material-circle:{ style="color: #dc2626" } |
-| P-13 | Aclarar diferencias entre lo informado y los archivos: categoría A/P, significado de COD_PLAN y fechas de alta y baja fuera de la regla de inicio y fin de mes | Validar reglas antes de migrar | Afiliaciones / Padrón | 21/10/2026 | — | :material-circle:{ style="color: #dc2626" } |
+| P-13 | Aclarar diferencias entre lo informado y los archivos: categoría A/P, significado de COD_PLAN y fechas de alta y baja fuera de la regla de inicio y fin de mes. Respondido el 06/11/2026: se admiten bajas fuera de fin de mes. Siguen pendientes la categoría A/P y COD_PLAN | Validar reglas antes de migrar | Afiliaciones / Padrón | 21/10/2026 | — | :material-circle:{ style="color: #f59e0b" } |
 | P-14 | Definir si la primera entrega incluye solo el padrón administrativo o también los derechos de cobertura, y quién aprueba cambios | Alcance del módulo 1 | Referente institucional | 21/10/2026 | — | :material-circle:{ style="color: #dc2626" } |
 
 ## :material-ticket-outline: 2 · Mesa de Entradas { #m2 }

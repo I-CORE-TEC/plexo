@@ -19,7 +19,7 @@ from . import autorizaciones as a, models as m
 from .cobertura import regla_aplicable
 from .permisos import puede_cargar_manual, puede_resolver_autorizaciones, requerir_carga_manual, requerir_financiador
 from .services import auditar
-from .vigencias import convenios_vigentes
+from .vigencias import convenios_vigentes, q_cobertura, tiene_cobertura
 from .views import CoberturaBaseViewSet
 
 
@@ -137,7 +137,7 @@ class SolicitudAutorizacionSerializer(serializers.ModelSerializer):
             and self.context.get("resuelve_autorizaciones", False))
 
     def get_puede_reenviar(self, obj) -> bool:
-        vigente = (obj.afiliado.cobertura_habilitada and not obj.afiliado.finalizado_en and obj.convenio_vigente
+        vigente = (tiene_cobertura(obj.afiliado)[0] and obj.convenio_vigente
                    and (not obj.plazo_respuesta or obj.plazo_respuesta > timezone.now()))
         if obj.origen == "manual":
             return bool(self.context.get("puede_cargar_manual") and obj.estado == "observada"
@@ -154,7 +154,7 @@ class SolicitudAutorizacionSerializer(serializers.ModelSerializer):
 
 def consulta_solicitudes():
     return m.SolicitudAutorizacion.objects.select_related(
-        "financiador", "institucion", "prestacion", "comun", "afiliado", "ciudadano", "caso", "convenio", "creado_por",
+        "financiador", "institucion", "prestacion", "comun", "afiliado__financiador", "ciudadano", "caso", "convenio", "creado_por",
     ).annotate(
         tiene_prescripcion=Exists(m.PrescripcionAutorizacion.objects.filter(solicitud_id=OuterRef("pk"))),
         convenio_vigente=Exists(convenios_vigentes().filter(pk=OuterRef("convenio_id"))),
@@ -328,8 +328,7 @@ class AutorizacionCoberturaViewSet(CoberturaBaseViewSet):
             raise PermissionDenied("Las opciones manuales corresponden al financiador.")
         requerir_carga_manual(request.user, financiador)
         hoy, ahora = timezone.localdate(), timezone.now()
-        afiliados = m.Afiliado.objects.filter(financiador_id=financiador, cobertura_habilitada=True, finalizado_en__isnull=True,
-            desde__lte=hoy)
+        afiliados = m.Afiliado.objects.filter(q_cobertura(hoy), financiador_id=financiador)
         busqueda = request.query_params.get("search", "").strip()
         if busqueda:
             afiliados = afiliados.filter(Q(nombre__icontains=busqueda) | Q(numero__icontains=busqueda)
@@ -342,7 +341,7 @@ class AutorizacionCoberturaViewSet(CoberturaBaseViewSet):
         institucion_id = request.query_params.get("hospital", "")
         if afiliado_id.isdigit() and institucion_id.isdigit() and convenios.filter(institucion_id=institucion_id).exists():
             afiliado = afiliados.filter(pk=afiliado_id).first() if not busqueda else m.Afiliado.objects.filter(
-                financiador_id=financiador, cobertura_habilitada=True, finalizado_en__isnull=True, desde__lte=hoy, pk=afiliado_id).first()
+                q_cobertura(hoy), financiador_id=financiador, pk=afiliado_id).first()
             if afiliado:
                 from types import SimpleNamespace
                 for comun in m.PrestacionComun.objects.filter(activo=True).order_by("nombre", "pk"):
@@ -359,11 +358,11 @@ class AutorizacionCoberturaViewSet(CoberturaBaseViewSet):
             raise serializers.ValidationError("Indicá el caso.")
         caso = get_object_or_404(a.casos_permitidos(request.user), pk=int(raw))
         activo = m.ConfiguracionHospital.objects.filter(institucion_id=caso.institucion_id, activo=True).exists()
-        afiliacion = m.AfiliacionCaso.objects.filter(caso=caso, hecho_revision=None).select_related("afiliado").first()
+        afiliacion = m.AfiliacionCaso.objects.filter(caso=caso, hecho_revision=None).select_related("afiliado__financiador").first()
         puede = bool(activo and afiliacion and afiliacion.afiliado_id and afiliacion.estado == "verificada"
-            and afiliacion.afiliado.cobertura_habilitada and not afiliacion.afiliado.finalizado_en and afiliacion.afiliado.desde <= timezone.localdate()
+            and tiene_cobertura(afiliacion.afiliado)[0]
             and convenios_vigentes().filter(institucion_id=caso.institucion_id,
-                financiador_id=afiliacion.afiliado.financiador_id, financiador__activo=True).exists()
+                financiador_id=afiliacion.afiliado.financiador_id).exists()
             and caso.nodo_actual_id and caso.estado not in caso.ESTADOS_FINALIZADOS)
         prestaciones = []
         if puede:

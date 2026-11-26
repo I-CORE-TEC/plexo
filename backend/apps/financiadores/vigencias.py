@@ -28,8 +28,38 @@ def convenio_aplicable(financiador_id, institucion_id, corte, bloquear=False):
     return qs.order_by("-aceptado_en", "-pk").first()
 
 
+def tiene_cobertura(afiliado, fecha=None):
+    """Single coverage decision for an affiliate on `fecha` (#216).
+
+    Returns `(bool, motivo)`. `motivo` is a stable code; the first failing
+    condition wins, in this order:
+    "sin_cobertura" (administrative record only), "finalizada", "futura"
+    (`desde` after `fecha`), "financiador_inactivo"; otherwise "vigente".
+    The affiliate's own state goes first and the payer last, so the
+    financiador is only loaded when the affiliate itself would be covered.
+    Historical evaluation (`cobertura_historica`, cobros) does not use this.
+    """
+    fecha = fecha or timezone.localdate()
+    if not afiliado.cobertura_habilitada:
+        return False, "sin_cobertura"
+    if afiliado.finalizado_en is not None:
+        return False, "finalizada"
+    if afiliado.desde > fecha:
+        return False, "futura"
+    if not afiliado.financiador.activo:
+        return False, "financiador_inactivo"
+    return True, "vigente"
+
+
+def q_cobertura(fecha=None, prefijo=""):
+    """ORM equivalent of `tiene_cobertura`; `prefijo` is e.g. "afiliado__"."""
+    fecha = fecha or timezone.localdate()
+    return Q(**{f"{prefijo}cobertura_habilitada": True, f"{prefijo}finalizado_en__isnull": True,
+                f"{prefijo}desde__lte": fecha, f"{prefijo}financiador__activo": True})
+
+
 def afiliados_vigentes():
-    return Afiliado.objects.filter(cobertura_habilitada=True, finalizado_en__isnull=True, desde__lte=timezone.localdate(), financiador__activo=True)
+    return Afiliado.objects.filter(q_cobertura())
 
 
 def _motivo(valor):

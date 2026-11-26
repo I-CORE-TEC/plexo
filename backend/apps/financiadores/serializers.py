@@ -165,8 +165,14 @@ class AfiliadoSerializer(serializers.ModelSerializer):
         return estado_administrativo(obj)
 
     def get_vigente(self, obj) -> bool:
-        from django.utils import timezone
-        return obj.cobertura_habilitada and obj.finalizado_en is None and obj.desde <= timezone.localdate()
+        from .vigencias import tiene_cobertura
+        # A padrón page shares one financiador: load it once, not once per row.
+        if not models.Afiliado.financiador.is_cached(obj):
+            cache = self.__dict__.setdefault("_financiadores", {})
+            if obj.financiador_id not in cache:
+                cache[obj.financiador_id] = models.Financiador.objects.get(pk=obj.financiador_id)
+            obj.financiador = cache[obj.financiador_id]
+        return tiene_cobertura(obj)[0]
 
     class Meta:
         model = models.Afiliado

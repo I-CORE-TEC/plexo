@@ -4,13 +4,12 @@ from decimal import Decimal
 
 from django.db.models import Case, DecimalField, Exists, F, OuterRef, Q, Subquery, Sum, Value, When
 from django.db.models.functions import Coalesce
-from django.utils import timezone
 
 from apps.auditoria.mixins import registrar_accesos
 from apps.auditoria.models import AccesoClinico
 from apps.finanzas.models import AjusteObligacion, MovimientoDinero, ObligacionFinanciera
 from .models import ReservaCobertura, ResolucionSaldo
-from .vigencias import convenios_vigentes
+from .vigencias import convenios_vigentes, q_cobertura
 
 
 def obligaciones_pendientes():
@@ -43,7 +42,7 @@ def actividad_visible(financiador):
     qs = ReservaCobertura.objects.filter(afiliado__financiador=financiador).annotate(
         hospital_origen=Case(When(hecho__isnull=False, then=F("hecho__institucion_id")), default=F("caso__institucion_id")),
     ).annotate(convenio_vigente=Exists(convenio), acuerdo_pendiente=Exists(acuerdo_pendiente))
-    vigente = Q(convenio_vigente=True, afiliado__cobertura_habilitada=True, afiliado__finalizado_en__isnull=True, afiliado__desde__lte=timezone.localdate(), afiliado__financiador__activo=True)
+    vigente = Q(convenio_vigente=True) & q_cobertura(prefijo="afiliado__")
     pendiente = (
         Q(estado="reservada", cubiertas__gt=0)
         | Q(distribucion__obligacion_financiador_id__in=pendientes)

@@ -54,10 +54,11 @@ def seleccionar_afiliacion(*, caso, usuario, afiliado=None, particular=False, de
         estado = "particular"
     elif afiliado:
         afiliado = Afiliado.objects.select_for_update().get(pk=afiliado.pk)
-        from .vigencias import convenio_aplicable
-        if not afiliado.cobertura_habilitada:
+        from .vigencias import convenio_aplicable, tiene_cobertura
+        cubierto, motivo = tiene_cobertura(afiliado)
+        if motivo == "sin_cobertura":
             raise ValidationError("El registro es sólo administrativo. Habilitá cobertura antes de seleccionarlo para una atención.")
-        if afiliado.finalizado_en or afiliado.desde > timezone.localdate() or not afiliado.financiador.activo:
+        if not cubierto:
             raise ValidationError("La afiliación no está vigente para una nueva selección. Los casos anteriores conservan su afiliación.")
         if afiliado.plan_id:
             plan_actual = type(afiliado.plan).objects.select_for_update().get(pk=afiliado.plan_id)

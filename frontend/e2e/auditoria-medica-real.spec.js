@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
-const datos = JSON.parse(readFileSync(process.env.SALUD_BORRADORES_MANIFEST, "utf8"));
-if (datos.escenario !== "borradores-derechos-v1" ||
+const datos = JSON.parse(readFileSync(process.env.SALUD_AUDITORIA_MANIFEST, "utf8"));
+if (datos.escenario !== "auditoria-medica-v1" ||
     !Object.values(datos.usuarios).every((email) => email.endsWith("@example.invalid"))) {
   throw new Error("Se requiere fixture ficticia dedicada.");
 }

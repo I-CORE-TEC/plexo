@@ -10,7 +10,7 @@ from apps.finanzas.models import ObligacionFinanciera
 from apps.finanzas.saldos import saldos_obligaciones
 from .cobertura import arancel_aplicable, cantidades_periodo, periodo, regla_aplicable
 from .models import ConfiguracionHospital, DistribucionCobro, ResolucionSaldo
-from .vigencias import convenio_aplicable
+from .vigencias import convenio_aplicable, tiene_cobertura
 
 
 def simular_afiliado(*, afiliado, vinculo, fecha, cantidad):
@@ -31,8 +31,7 @@ def simular_afiliado(*, afiliado, vinculo, fecha, cantidad):
                  "consultado_en": corte.isoformat(), "cubiertas": 0, "porcentaje": "0.00",
                  "disponibles": None, "importe_total": None, "importe_financiador": None,
                  "importe_paciente": None}
-    vigente = bool(afiliado.financiador.activo and afiliado.cobertura_habilitada
-                   and afiliado.desde <= fecha and afiliado.finalizado_en is None)
+    vigente = tiene_cobertura(afiliado, fecha)[0]
     comprobar("afiliacion", "cumple" if vigente else "no_cumple",
               "Afiliación habilitada para la fecha indicada." if vigente else
               "La afiliación actual no está habilitada, aún no inició o está finalizada.")
