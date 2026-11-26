@@ -78,7 +78,8 @@ class ImportacionAdministrativaTests(TestCase):
         anterior = self.huella_novedades(protegidos)
         lote = self.preview([_persona(1, NUMERO="000001", APENOM="PERSONA FICTICIA RECTIFICADA")])
         self.assertEqual(lote.status_code, 200, lote.data)
-        self.assertEqual(lote.data["resumen"]["revision"], 1)
+        # #219: una diferencia limpia es modificación válida, sin revisión por fila.
+        self.assertEqual((lote.data["resumen"]["valida"], lote.data["filas"][0]["grupo"]), (1, "modificacion"))
         self.assertEqual(self.huella_novedades(protegidos), anterior)
         corregida = self.corregir(lote.data)
         self.assertEqual(corregida.status_code, 200, corregida.data)
@@ -94,7 +95,9 @@ class ImportacionAdministrativaTests(TestCase):
         self.assertEqual(repetida.status_code, 200, repetida.data)
         self.assertEqual(self.huella_novedades(), tras_aplicar)
 
-    def test_baja_y_reingreso_ostel_bloqueados_sin_mutar_padron_ni_historia(self):
+    def test_confirmacion_anterior_nunca_aplica_bajas_ni_reingresos(self):
+        """#219: bajas y reingresos sólo se aplican por grupos (aplicar-ostel), nunca por
+        confirmar-importacion; previsualizar y corregir tampoco mutan el padrón."""
         from datetime import date
 
         self.preparar_novedades_aisladas()
@@ -105,27 +108,25 @@ class ImportacionAdministrativaTests(TestCase):
         self.assertEqual(finalizada.status_code, 200, finalizada.data)
         afiliado.refresh_from_db()
         self.assertIsNotNone(afiliado.finalizado_en)
-        for fuente, persona, estado_correccion in (
-            ("bajas", _persona(1, NUMERO="000001"), 400),
-            ("base", _persona(1, NUMERO="000001", ESTADO="B"), 400),
-            ("base", _persona(1, NUMERO="000001", FECBAJ=date(2026, 1, 1)), 400),
-            ("base", _persona(2, NUMERO="000002"), 200),
+        for fuente, persona, grupo in (
+            ("bajas", _persona(1, NUMERO="000001"), "conflicto"),  # bajas sin FECBAJ
+            ("base", _persona(1, NUMERO="000001", ESTADO="B"), "conflicto"),  # ESTADO=B sin FECBAJ
+            # FECBAJ anterior al desde (hoy) de la afiliación creada por el lote previo.
+            ("base", _persona(1, NUMERO="000001", FECBAJ=date(2026, 1, 1)), "conflicto"),
+            ("base", _persona(1, NUMERO="000001", FECBAJ=timezone.localdate()), "baja"),
+            ("base", _persona(2, NUMERO="000002"), "conflicto"),  # reingreso sin plan anterior
         ):
             with self.subTest(fuente=fuente, fila=persona):
                 anterior = self.huella_novedades()
                 lote = self.preview([persona], fuente=fuente)
                 self.assertEqual(lote.status_code, 200, lote.data)
-                self.assertEqual(lote.data["resumen"]["valida"], 0)
+                self.assertEqual(lote.data["filas"][0]["grupo"], grupo)
                 self.assertEqual(self.huella_novedades(), anterior)
                 revisada = self.corregir(lote.data)
-                self.assertEqual(revisada.status_code, estado_correccion, revisada.data)
-                if estado_correccion == 200:
-                    self.assertEqual(revisada.data["resumen"]["valida"], 0)
-                    self.assertEqual(revisada.data["resumen"]["revision"], 1)
-                    self.assertIn("Afiliación finalizada: un posible reingreso requiere gestión expresa.",
-                                  revisada.data["filas"][0]["errores"])
+                self.assertEqual(revisada.status_code, 200, revisada.data)
+                self.assertEqual(revisada.data["filas"][0]["grupo"], grupo)
                 self.assertEqual(self.huella_novedades(), anterior)
-                aplicada = self.aplicar(lote.data)
+                aplicada = self.aplicar(revisada.data)
                 self.assertEqual(aplicada.status_code, 200, aplicada.data)
                 self.assertEqual(aplicada.data["resumen"]["aplicada"], 0)
                 self.assertEqual(self.huella_novedades(), anterior)
@@ -470,10 +471,14 @@ class ImportacionAdministrativaTests(TestCase):
                 self.assertFalse(Importacion.objects.exists())
 
     def test_bajas_no_aplican_ni_se_fuerzan_mediante_correccion(self):
+        # #219: la fila de bajas sin FECBAJ es conflicto; corregir la identidad no la vuelve baja.
         r = self.preview(fuente="bajas").data
         self.assertEqual(r["resumen"]["valida"], 0)
-        self.assertEqual(self.corregir(r).status_code, 400)
-        self.aplicar(r)
+        self.assertIn("La fila de bajas no tiene FECBAJ.", r["filas"][0]["errores"])
+        corregida = self.corregir(r)
+        self.assertEqual(corregida.status_code, 200, corregida.data)
+        self.assertEqual((corregida.data["resumen"]["valida"], corregida.data["filas"][0]["grupo"]), (0, "conflicto"))
+        self.aplicar(corregida.data)
         self.assertFalse(Afiliado.objects.exists())
 
     def test_nroafi_compartido_permitido_y_repeticion_archivo_idempotente(self):
@@ -507,15 +512,15 @@ class ImportacionAdministrativaTests(TestCase):
         self.assertEqual(obj.desde, timezone.localdate())
         self.assertEqual(obj.nombre, "PERSONA FICTICIA CAMBIADA")
 
-    def test_diferencias_entre_fuentes_requieren_revision_explicita(self):
+    def test_diferencias_entre_fuentes_se_muestran_y_aplican_sin_motivo_por_fila(self):
+        # #219: antes exigía revisar cada diferencia; ahora es una modificación con antes/después.
         self.aplicar(self.preview().data)
         r = self.preview([_persona(1, NUMERO="000001", APENOM="PERSONA FICTICIA OTRA FUENTE")]).data
-        self.assertEqual(r["resumen"]["revision"], 1)
-        self.aplicar(r)
-        self.assertNotEqual(Afiliado.objects.get().nombre, "PERSONA FICTICIA OTRA FUENTE")
+        self.assertEqual((r["resumen"]["valida"], r["filas"][0]["grupo"]), (1, "modificacion"))
+        self.assertIn({"campo": "nombre", "anterior": "PERSONA FICTICIA OSTEL 0001",
+                       "nuevo": "PERSONA FICTICIA OTRA FUENTE"}, r["filas"][0]["diferencias"])
         self.assertEqual(r["filas"][0]["padron_actual"]["nombre"], "PERSONA FICTICIA OSTEL 0001")
-        corregida = self.corregir(r)
-        self.aplicar(corregida.data)
+        self.aplicar(r)
         self.assertEqual(Afiliado.objects.get().nombre, "PERSONA FICTICIA OTRA FUENTE")
 
     def test_dimension_declarada_no_expande_la_lectura(self):

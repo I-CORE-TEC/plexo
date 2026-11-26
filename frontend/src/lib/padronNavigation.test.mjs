@@ -2,13 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parametrosFicha, parametrosFamiliar, parametrosListado } from "./padronNavigation.js";
 
-test("novelty state stays in its ficha and never leaks into padron or another person", () => {
-  const query = "financiador=7&estado=administrativas&padron_page=3&page=4&tab=derechos&afiliado=45&novedad=81&novedades_estado=conciliada&novedades_page=2";
+test("ficha state stays in its ficha and never leaks into padron or another person", () => {
+  const query = "financiador=7&estado=administrativas&padron_page=3&page=4&tab=derechos&autorizaciones_page=2&historial_page=5";
   assert.deepEqual(Object.fromEntries(parametrosListado(query, 7)), {
     financiador: "7", estado: "administrativas", page: "3",
   });
   for (const target of [parametrosFamiliar(query), parametrosFicha(query, 7, 3)]) {
-    for (const field of ["afiliado", "novedad", "novedades_estado", "novedades_page", "page", "tab"]) {
+    for (const field of ["autorizaciones_page", "historial_page", "page", "tab"]) {
       assert.equal(target.has(field), false, field);
     }
     assert.equal(target.get("estado"), "administrativas");

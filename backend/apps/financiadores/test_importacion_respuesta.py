@@ -129,7 +129,8 @@ class RespuestaImportacionTests(DatosRespuesta, TestCase):
         self.assertNotIn("CODPAR", advertida["original"])
         self.assertEqual(primera["filas"][100]["estado"], "omitida")
         self.assertIn("CUIL", primera["filas"][102]["columnas_error"])
-        self.assertIn("FECBAJ", primera["filas"][103]["columnas_bloqueo"])
+        self.assertIn("FECBAJ", primera["filas"][103]["columnas_error"])
+        self.assertEqual(primera["filas"][103]["grupo"], "conflicto")
         cambiadas = {f["fila"]: f for f in segunda["filas_cambiadas"]}
         reconstruido = {**segunda, "filas": [cambiadas.get(f["fila"], f) for f in primera["filas"]]}
         lote.refresh_from_db()

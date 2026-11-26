@@ -1,0 +1,42 @@
+{
+  "f1": {
+    "status": "documented",
+    "evidence": [
+      "docs/funcionalidades/financiadores-cobertura/README.md",
+      "backend/apps/financiadores/test_clinica.py",
+      "backend/apps/financiadores/test_cobertura.py"
+    ],
+    "paths": [
+      "backend/apps/financiadores/api_clinica.py",
+      "backend/apps/financiadores/api_hospital.py",
+      "backend/apps/financiadores/clinica.py",
+      "backend/apps/financiadores/cobertura.py",
+      "backend/apps/financiadores/cobros.py",
+      "backend/apps/financiadores/actividad.py",
+      "backend/apps/financiadores/models.py",
+      "backend/apps/financiadores/migrations/*",
+      "backend/apps/financiadores/uso_autorizaciones.py",
+      "frontend/src/pages/ejecucion/CasoDetalle.jsx",
+      "frontend/src/pages/financiadores/ActividadFinanciador.jsx",
+      "frontend/src/pages/financiadores/CoberturaCaso.jsx",
+      "frontend/src/pages/financiadores/CoberturasHospital.jsx"
+    ]
+  },
+  "f4": {
+    "status": "documented",
+    "evidence": [
+      "docs/funcionalidades/financiadores-cobertura/README.md",
+      "backend/apps/financiadores/test_autorizaciones.py",
+      "backend/apps/financiadores/test_autorizaciones_manuales.py"
+    ],
+    "paths": [
+      "backend/apps/financiadores/*autorizacion*.py",
+      "backend/apps/financiadores/models.py",
+      "backend/apps/financiadores/migrations/*",
+      "backend/apps/financiadores/esperas.py",
+      "backend/apps/casos/motor.py",
+      "frontend/src/pages/financiadores/*Autorizacion*.jsx",
+      "frontend/src/pages/financiadores/CoberturaCaso.jsx"
+    ]
+  }
+}

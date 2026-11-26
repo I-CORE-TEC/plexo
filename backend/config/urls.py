@@ -45,6 +45,7 @@ from apps.accounts.auth_views import (
 from apps.casos.views import MisTareasView, PantallaLlamadosView, PuestoDetalleView
 from apps.common import DescargarArchivoView, SubirArchivoView
 from config.api import router
+from config.atlas import AtlasView
 from apps.geografia.api import LugaresView, EstadoCatalogoView
 
 
@@ -148,6 +149,7 @@ class EstadoView(APIView):
 
 
 urlpatterns = [
+    path("api/atlas/", AtlasView.as_view(), name="atlas"),
     path("api/geografia/lugares/", LugaresView.as_view(), name="geografia-lugares"),
     path("api/geografia/estado/", EstadoCatalogoView.as_view(), name="geografia-estado"),
     path("admin/", admin.site.urls),

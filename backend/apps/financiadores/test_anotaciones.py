@@ -143,8 +143,9 @@ class AnotacionesTests(TestCase):
         self.assertEqual(lote["filas"][0]["advertencias"], [])
         self.assertEqual([f["columnas_error"] for f in lote["filas"]], [["FECBAJ"], ["ESTADO"], ["NROAFI"]])
         hoja = libro(self.anotar(contenido, importacion=lote["id"]).content)["Hoja1"]
-        self.assertIn("Evidencia de baja", comentario(hoja, 2, COLUMNAS.index("FECBAJ") + 1))
-        self.assertIn("Evidencia de baja", comentario(hoja, 3, COLUMNAS.index("ESTADO") + 1))
+        # #219: una baja de un documento fuera del padrón o sin FECBAJ es conflicto, marcado en su celda.
+        self.assertIn("no está en el padrón", comentario(hoja, 2, COLUMNAS.index("FECBAJ") + 1))
+        self.assertIn("falta FECBAJ", comentario(hoja, 3, COLUMNAS.index("ESTADO") + 1))
         self.assertIn("Tipos de identificadores", comentario(hoja, 4, COLUMNAS.index("NROAFI") + 1))
         self.assertEqual([comentario(hoja, n, 1) for n in (2, 3, 4)], [None, None, None])
         self.assertIsNone(comentario(hoja, 2, COLUMNAS.index("EMAIL1") + 1))
