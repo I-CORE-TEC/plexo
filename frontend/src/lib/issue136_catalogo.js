@@ -21,7 +21,11 @@ export async function cargarCatalogoGeografico(cargarPagina, signal) {
   return filas;
 }
 
+function normalizarBusqueda(texto) {
+  return texto.toLocaleLowerCase("es-AR").normalize("NFD").replace(/n\u0303/g, "ñ").replace(/\p{M}/gu, "");
+}
+
 export function filtrarCatalogoGeografico(filas, texto) {
-  const busqueda = texto.trim().toLocaleLowerCase("es-AR");
-  return busqueda ? filas.filter((fila) => fila.nombre.toLocaleLowerCase("es-AR").includes(busqueda)) : filas;
+  const busqueda = normalizarBusqueda(texto.trim());
+  return busqueda ? filas.filter((fila) => normalizarBusqueda(fila.nombre).includes(busqueda)) : filas;
 }
