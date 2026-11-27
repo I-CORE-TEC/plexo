@@ -35,7 +35,13 @@ Al fusionar un PR hacia `qa`, GitHub Actions abre o reutiliza el PR desde
 `qa` hacia `agc`. No lo aprueba ni lo fusiona. Si la rama `qa` no tiene
 commits nuevos para promover, no abre un PR.
 
-El repositorio debe permitir que GitHub Actions cree PRs. GitHub puede pedir
-a una persona con permiso de escritura que habilite el CI del PR creado por
-el token de Actions. Los checks de despliegue de QA y el bloqueo de push
-directo en `agc` no cambian.
+El workflow usa una GitHub App privada instalada únicamente en
+`I-CORE-TEC/plexo`. La App necesita **Pull requests: Read and write** y
+**Contents: Read-only** para comparar ramas y **Metadata: Read-only**. No tiene permiso de escritura en **Contents**, ni
+excepciones a las reglas de ramas.
+
+En el environment de GitHub Actions `agc-promotion`, limitado a la rama
+`qa`, configura la variable `AGC_PROMOTION_APP_CLIENT_ID` y el secreto
+`AGC_PROMOTION_APP_PRIVATE_KEY`. La clave se carga directamente en GitHub;
+no se guarda en el repositorio. El workflow usa un token temporal limitado
+al repositorio. No hace falta permitir que GitHub Actions apruebe PRs.
