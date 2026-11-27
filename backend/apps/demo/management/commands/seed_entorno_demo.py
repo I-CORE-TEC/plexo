@@ -1,4 +1,4 @@
-"""Vacía la base y carga el entorno de demostración completo, siempre igual.
+"""Reemplaza los datos de demo sin borrar el catálogo geográfico compartido.
 
 Es el único comando que conoce el orden entre los `seed_*`. Cada uno carga una
 sola cosa y declara lo que necesita; este los encadena:
@@ -21,6 +21,8 @@ financiadores.
 Todo corre en UNA transacción, vaciado incluido: si un paso falla, la base
 queda como estaba y no a medio cargar. Mientras corre, la aplicación espera:
 el vaciado bloquea todas las tablas hasta el final (entre 5 y 7 minutos).
+El catálogo oficial, su historial y las ubicaciones que no referencian lugares
+manuales privados se conservan.
 
 Con `SEED_DEMO=True` y los archivos en el bucket (#171), también se borran los
 archivos de la app que había antes de la carga (`apps.demo.archivos`). Se
@@ -53,13 +55,14 @@ from unittest.mock import patch
 from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connection, transaction
+from django.db import DatabaseError, connection, transaction
 from django.utils import timezone
 
 from apps.demo import archivos
 from apps.demo.claves import CLAVE_POR_DEFECTO, usa_clave_por_defecto
 from apps.demo.entorno import exigir_entorno_de_prueba
 from apps.demo.escenas_qa import cargar_escenas_qa
+from apps.demo.reinicio import vaciar_datos_demo
 from apps.demo.trabajo import INFORMATIVOS, trabajo_por_usuario
 
 
@@ -81,7 +84,7 @@ def pasos(dias, casos):
 
 
 class Command(BaseCommand):
-    help = "Vacía la base y carga la demo completa. Requiere SEED_DEMO=True y no admite producción."
+    help = "Recarga la demo sin borrar Georef. Requiere SEED_DEMO=True y no admite producción."
 
     def add_arguments(self, parser):
         parser.add_argument("--noinput", "--no-input", action="store_false", dest="interactive",
@@ -103,7 +106,7 @@ class Command(BaseCommand):
         ancla = self._ancla(opciones["ancla"])
         if opciones["interactive"]:
             bucket = " y los archivos de la app en el bucket" if archivos.corresponde_vaciar() else ""
-            respuesta = input(f"Esto BORRA todos los datos de la base «{base}»{bucket} y carga la demo. "
+            respuesta = input(f"Esto BORRA los datos de demo de «{base}»{bucket} (no el catálogo Georef). "
                               "Escribí «vaciar» para seguir: ")
             if respuesta.strip().lower() != "vaciar":
                 raise CommandError("Cancelado. No se modificó ningún dato.")
@@ -155,7 +158,10 @@ class Command(BaseCommand):
     def _cargar(self, base, opciones, al_revertir):
         with transaction.atomic():
             self.stdout.write(f"Vaciando «{base}»…")
-            call_command("flush", interactive=False, verbosity=0)
+            try:
+                vaciar_datos_demo(connection)
+            except DatabaseError as error:
+                raise CommandError(f"No se pudo vaciar «{base}»; no se modificó ningún dato.") from error
             for comando, parametros in pasos(opciones["dias"], opciones["casos"]):
                 t0 = time.monotonic()
                 self.stdout.write(f"  {comando}…", ending="")

@@ -24,7 +24,8 @@ from apps.agenda.models import Turno
 from apps.auditoria.models import AccesoClinico
 from apps.casos.models import Caso, ItemFila
 from apps.finanzas.models import ConcesionFinanciera, Gasto, HechoAtencionCosteable, MovimientoDinero
-from apps.financiadores.models import Afiliado, Convenio, Plan, RegistroFactura, ReglaCobertura, SolicitudAutorizacion
+from apps.financiadores.models import Afiliado, Convenio, Financiador, Plan, RegistroFactura, ReglaCobertura, SolicitudAutorizacion
+from apps.geografia.models import Catalogo, Ejecucion, Lugar, Ubicacion
 from apps.instituciones.models import Institucion
 from apps.instituciones.puesta_en_marcha import pasos as pasos_de_puesta_en_marcha
 from apps.registros import integridad
@@ -170,8 +171,49 @@ class CargaCompletaTests(TransactionTestCase):
         return {m.__name__: m.objects.count() for m in modelos}
 
     def test_carga_completa(self):
+        Catalogo.objects.create(pk=1, version=8, actualizado=timezone.now(), huella="synthetic")
+        Ejecucion.objects.create(resultado="publicado", entidades=2)
+        province = Lugar.objects.create(tipo="provincia", origen="georef", codigo="01", nombre="Provincia oficial")
+        locality = Lugar.objects.create(tipo="localidad", origen="georef", codigo="01001",
+                                        nombre="Localidad oficial", provincia=province)
+        official = Ubicacion.objects.create(provincia=province, localidad=locality,
+                                            textos={"localidad": "Texto anterior"})
+        Ubicacion.objects.create(textos={"localidad": "Texto sin referencia"})
+        previous = Institucion.objects.create(nombre="Prior synthetic hospital")
+        funder = Financiador.objects.create(nombre="Prior synthetic funder", tipo="mutual")
+        # A private descendant can itself point to another private place.
+        private_province = Lugar.objects.create(tipo="provincia", origen="manual", nombre="Provincia privada",
+                                                financiador=funder, clave_manual="private-province")
+        private_locality = Lugar.objects.create(tipo="localidad", origen="manual", nombre="Localidad privada",
+                                                institucion=previous, provincia=private_province,
+                                                clave_manual="private-locality")
+        previous.geografia = Ubicacion.objects.create(localidad=private_locality)
+        previous.save(update_fields=["geografia"])
+        Afiliado.objects.create(financiador=funder, geografia=official, geografia_laboral=previous.geografia,
+                                numero="OLD", documento="99029902", nombre="Prior synthetic affiliate",
+                                desde=timezone.localdate())
+        before = self._geography_snapshot()
         with reloj_corrido(self.AHORA):
             self._verificar_carga_completa()
+        self.assertEqual(self._geography_snapshot(), before)
+        self.assertFalse(Lugar.objects.filter(origen="manual").exists())
+        self.assertFalse(Ubicacion.objects.filter(pk=previous.geografia_id).exists())
+        self.assertFalse(Institucion.objects.filter(nombre=previous.nombre).exists())
+        self.assertFalse(Financiador.objects.filter(nombre=funder.nombre).exists())
+        self.assertFalse(Afiliado.objects.filter(documento="99029902").exists())
+
+    @staticmethod
+    def _geography_snapshot():
+        return [list(rows.order_by("pk").values()) for rows in (
+            Catalogo.objects.all(), Ejecucion.objects.all(), Lugar.objects.filter(origen="georef"),
+            Ubicacion.objects.exclude(localidad__origen="manual"),
+        )]
+
+    def test_seed_succeeds_without_georef_catalog(self):
+        with reloj_corrido(self.AHORA), patch.dict("os.environ", {"DEMO_PASSWORD": "clave-de-prueba-65"}):
+            self.cargar()
+        self.assertTrue(Afiliado.objects.filter(documento="99029901").exists())
+        self.assertFalse(Catalogo.objects.exists())
 
     def _verificar_carga_completa(self):
         with patch.dict("os.environ", {"DEMO_PASSWORD": "clave-de-prueba-65"}):

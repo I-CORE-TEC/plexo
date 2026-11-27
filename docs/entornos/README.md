@@ -74,8 +74,9 @@ configurado.
 
 ## Rehacer el entorno demo desde cero
 
-Un solo comando **vacía la base** y carga todo, en orden y en una sola
-transacción: si un paso falla, la base queda como estaba.
+Un solo comando **reemplaza los datos de demo** y carga todo en una transacción:
+si un paso falla, la base queda como estaba. El catálogo oficial de Georef y su
+historial se conservan (ver [resembrado de QA](resembrar-demo-railway.md)).
 
 ```bash
 $DEMO up -d --build       # la imagen trae el código horneado: sin --build corre el de la última construcción
