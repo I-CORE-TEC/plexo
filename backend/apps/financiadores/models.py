@@ -1,17 +1,11 @@
 """Cobertura administrativa. No constituye una historia clínica compartida."""
 import uuid
-from datetime import date
 
 from django.conf import settings
-from django.core.validators import MaxValueValidator
 from django.db import models
 from django.db.models import Q
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
-
-
-# Upper bound for calendar-day terms; kept stable because migration 0019 encodes it.
-MAX_DIAS_CORRIDOS = (date.max - date.min).days
 
 
 class Financiador(models.Model):
@@ -607,33 +601,3 @@ class UsoAutorizacion(models.Model):
 
     class Meta:
         constraints = [models.CheckConstraint(condition=Q(cantidad__gt=0), name="fin_uso_autorizacion_positivo")]
-
-
-class BorradorReglaDerechos(models.Model):
-    """Versión administrativa no operativa; sólo se agrega mediante su servicio."""
-    financiador = models.ForeignKey(Financiador, on_delete=models.PROTECT)
-    plan = models.ForeignKey(Plan, null=True, blank=True, on_delete=models.PROTECT)
-    regimen = models.CharField(max_length=12, choices=Afiliado._meta.get_field("regimen").choices)
-    codigo = models.CharField(max_length=60)
-    version = models.PositiveIntegerField()
-    fuente = models.CharField(max_length=255)
-    desde = models.DateField()
-    hasta = models.DateField(null=True, blank=True)
-    plazo_dias_corridos = models.PositiveIntegerField(null=True, blank=True, validators=[MaxValueValidator(MAX_DIAS_CORRIDOS)])
-    creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, editable=False)
-    motivo = models.CharField(max_length=255)
-    creado = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["regimen", "plan_id", "codigo", "version"]
-        constraints = [
-            models.CheckConstraint(condition=Q(plazo_dias_corridos__isnull=True) | Q(plazo_dias_corridos__gte=0, plazo_dias_corridos__lte=MAX_DIAS_CORRIDOS),
-                                   name="fin_borrador_plazo_rango"),
-            models.UniqueConstraint(fields=["financiador", "regimen", "plan", "codigo", "version"],
-                                    condition=Q(plan__isnull=False), name="fin_borrador_plan_version"),
-            models.UniqueConstraint(fields=["financiador", "regimen", "codigo", "version"],
-                                    condition=Q(plan__isnull=True), name="fin_borrador_general_version"),
-            models.CheckConstraint(condition=Q(version__gt=0), name="fin_borrador_version_positiva"),
-            models.CheckConstraint(condition=Q(hasta__isnull=True) | Q(hasta__gt=models.F("desde")),
-                                   name="fin_borrador_intervalo"),
-        ]

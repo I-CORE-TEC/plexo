@@ -41,7 +41,8 @@
       "vigentes": "Vigente",
       "administrativas": "Sólo administrativa",
       "futuras": "Aún no vigente",
-      "finalizadas": "Finalizada"
+      "finalizadas": "Finalizada",
+      "financiador_inactivo": "Financiador inactivo"
     },
     "default": true
   },

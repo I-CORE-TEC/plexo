@@ -1,0 +1,37 @@
+services:
+  s3:
+    image: chrislusf/seaweedfs:4.05
+    command: ["mini", "-dir=/data", "-master.telemetry=false"]
+    environment:
+      AWS_ACCESS_KEY_ID: ${ACCESS_KEY_ID:?Set a local-only S3 access key}
+      AWS_SECRET_ACCESS_KEY: ${SECRET_ACCESS_KEY:?Set a local-only S3 secret}
+    ports:
+      - "127.0.0.1:8333:8333"
+    volumes:
+      - attachments:/data
+
+  bucket-init:
+    image: amazon/aws-cli:2.27.41
+    depends_on: [s3]
+    environment:
+      AWS_ACCESS_KEY_ID: ${ACCESS_KEY_ID:?Set a local-only S3 access key}
+      AWS_SECRET_ACCESS_KEY: ${SECRET_ACCESS_KEY:?Set a local-only S3 secret}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://s3:8333
+      BUCKET: ${BUCKET:?Set a local S3 bucket name}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        for attempt in $$(seq 1 30); do
+          if aws s3api list-buckets >/dev/null 2>&1; then
+            aws s3api head-bucket --bucket "$$BUCKET" ||
+              aws s3api create-bucket --bucket "$$BUCKET" >/dev/null
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "Local S3 did not become ready with the supplied credentials." >&2
+        exit 1
+
+volumes:
+  attachments:

@@ -16,6 +16,7 @@ from apps.registros.models import normalizar_documento
 from . import models as m
 from .padron import estado_administrativo
 from .padron_api import filtrar_padron
+from .vigencias import derecho_padron, expr_derecho_padron
 
 
 COLUMNAS_PADRON = {c["key"]: c for c in json.loads(Path(__file__).with_name("padron_columnas.json").read_text(encoding="utf-8"))}
@@ -74,12 +75,7 @@ def _anotar(qs, claves):
             default=Value("false"), output_field=CharField(),
         ))
     if "derecho" in claves:
-        qs = qs.annotate(_padron_derecho=Case(
-            When(finalizado_en__isnull=False, then=Value("finalizadas")),
-            When(cobertura_habilitada=False, then=Value("administrativas")),
-            When(desde__gt=hoy, then=Value("futuras")),
-            default=Value("vigentes"), output_field=CharField(),
-        ))
+        qs = qs.annotate(_padron_derecho=expr_derecho_padron(hoy))
     if "estado_administrativo" in claves:
         qs = qs.annotate(_padron_administrativo=Case(
             When(baja_efectiva__gt=hoy, then=Value("baja_programada")),
@@ -135,7 +131,7 @@ def _consultar_padron(*, financiador, parametros):
         qs = qs.filter(plan_id=serializers.IntegerField(min_value=1).run_validation(parametros["plan"]))
     derecho = parametros.get("derecho") or parametros.get("estado")
     if derecho:
-        derecho = serializers.ChoiceField(choices=["vigentes", "finalizadas", "futuras", "administrativas", "todos"]).run_validation(derecho)
+        derecho = serializers.ChoiceField(choices=["vigentes", "finalizadas", "futuras", "administrativas", "financiador_inactivo", "todos"]).run_validation(derecho)
         if derecho != "todos":
             qs = _anotar(qs, {"derecho"}).filter(_padron_derecho=derecho)
     if parametros.get("documento"):
@@ -214,7 +210,7 @@ def valor_columna_padron(afiliado, clave):
     if clave == "plan_tipo":
         valor = afiliado.plan.tipo if afiliado.plan_id else ""
     elif clave == "derecho":
-        valor = "finalizadas" if afiliado.finalizado_en else "administrativas" if not afiliado.cobertura_habilitada else "futuras" if afiliado.desde > timezone.localdate() else "vigentes"
+        valor = derecho_padron(afiliado)
     elif clave == "estado_administrativo":
         valor = estado_administrativo(afiliado)
     elif clave == "titular_nombre":

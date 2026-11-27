@@ -55,10 +55,10 @@ class PadronMensualGruposTests(TestCase):
         obj.save(update_fields=["finalizado_en", "motivo_finalizacion"])
         return obj
 
-    def preview(self, filas, fuente="base"):
+    def preview(self, filas, fuente="base", cobertura=False):
         r = self.client.post(self.base + "previsualizar-ostel/", {
             "archivo": SimpleUploadedFile("mensual.xlsx", generar_xlsx(Lote("mensual", tuple(filas)))),
-            "clave": str(uuid4()), "fuente": fuente, "cobertura_habilitada": False,
+            "clave": str(uuid4()), "fuente": fuente, "cobertura_habilitada": cobertura,
         }, format="multipart")
         self.assertEqual(r.status_code, 200, r.data)
         return r.data
@@ -147,8 +147,8 @@ class PadronMensualGruposTests(TestCase):
              "ESTADO indica baja pero falta FECBAJ."),
             ("baja sin padrón", lambda: None, fila(4, FECBAJ=date(2026, 6, 30)),
              "Baja de un documento que no está en el padrón."),
-            ("baja ya finalizada", lambda: self.finalizado(5), fila(5, FECBAJ=date(2026, 6, 30)),
-             "La afiliación ya está finalizada. La baja no se repite."),
+            ("baja ya finalizada con otra fecha", lambda: self.finalizado(5), fila(5, FECBAJ=date(2026, 6, 30)),
+             "La afiliación ya está finalizada con otra fecha de baja. Revisá FECBAJ."),
             ("reingreso sin plan", lambda: self.finalizado(6, plan=None), fila(6, FECING=date(2026, 8, 1)),
              "Reingreso sin plan anterior activo. Reactivá la afiliación manualmente."),
             ("reingreso plan inactivo", lambda: self.finalizado(7, plan=inactivo), fila(7, FECING=date(2026, 8, 1)),
@@ -213,12 +213,38 @@ class PadronMensualGruposTests(TestCase):
         lote = self.preview([fila(1, CUIL=_cuil("99018502"))])
         self.assert_conflicto(lote, "Documento y CUIL no concuerdan; requiere revisión humana.")
 
-    def test_conflicto_de_cobertura_queda_en_conflictos(self):
-        self.existente(1, cobertura_habilitada=True)
-        lote = self.preview([fila(1)])
+    def test_cobertura_distinta_a_la_opcion_del_lote_no_es_conflicto(self):
+        # Decisión 27/11: la opción del lote sólo rige altas; quien ya existe conserva su cobertura.
+        for indice, actual in ((1, True), (2, False)):
+            with self.subTest(actual=actual):
+                obj = self.existente(indice, cobertura_habilitada=actual)
+                lote = self.preview([fila(indice, APENOM="NOMBRE NUEVO")], cobertura=not actual)
+                f = self.unica(lote)
+                self.assertEqual((f["estado"], f["grupo"]), ("valida", "modificacion"))
+                self.assertNotIn("conflicto_cobertura", f)
+                r = self.aplicar(lote, ["modificacion"])
+                self.assertEqual(r.data["resumen"]["aplicada"], 1, r.data)
+                obj.refresh_from_db()
+                self.assertEqual((obj.nombre, obj.cobertura_habilitada), ("NOMBRE NUEVO", actual))
+
+    def test_alta_usa_la_opcion_de_cobertura_del_lote(self):
+        lote = self.preview([fila(1)], cobertura=True)
+        self.assertEqual(self.aplicar(lote, ["alta"]).data["resumen"]["aplicada"], 1)
+        self.assertTrue(Afiliado.objects.get(documento="99018501").cobertura_habilitada)
+
+    def test_baja_repetida_con_la_misma_fecha_queda_ya_registrada(self):
+        obj = self.finalizado(1)  # baja registrada el 01/07/2026
+        antes = self.huella()
+        lote = self.preview([fila(1, FECBAJ=date(2026, 7, 1))])
         f = self.unica(lote)
-        self.assertEqual((f["estado"], f["grupo"]), ("revision", "conflicto"))
-        self.assertTrue(f["conflicto_cobertura"])
+        self.assertEqual((f["grupo"], f["estado"], f["ya_registrada"], f["fecha_baja"]),
+                         ("baja", "aplicada", True, "2026-07-01"))
+        self.assertEqual((lote["resumen"]["pendientes"]["baja"], lote["resumen"]["grupos"]["conflicto"]), (0, 0))
+        r = self.aplicar(lote, ["baja"], confirmar_bajas=True)
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(self.huella(), antes)
+        obj.refresh_from_db()
+        self.assertEqual(obj.motivo_finalizacion, "Cierre ficticio anterior")
 
     def test_original_conserva_las_40_columnas(self):
         self.existente(1)
@@ -414,17 +440,32 @@ class PadronMensualGruposTests(TestCase):
         self.assertEqual((r.status_code, r.data["filas"][0]["estado"]), (200, "revision"))
         self.assertEqual(self.huella(), antes)
 
-    def test_confirmacion_anterior_no_aplica_baja_ni_reingreso_validos(self):
+    def test_confirmacion_anterior_exige_motivo_del_lote_en_padron_mensual(self):
+        # Decisión 27/11: la confirmación anterior sigue disponible (respuesta acotada),
+        # pero ningún cambio del padrón mensual queda sin el motivo del lote.
         self.existente(1)
         self.finalizado(2)
         lote = self.preview([fila(1, FECBAJ=date(2026, 6, 30)), fila(2, FECING=date(2026, 8, 1)), fila(3)])
-        self.assertEqual([f["grupo"] for f in lote["filas"]], ["baja", "reingreso", "alta"])
-        r = self.client.post(self.base + "confirmar-importacion/", {"importacion": lote["id"]}, format="json")
+        antes = self.huella()
+        for modo in ("completa", "cambios"):
+            for motivo in (None, "", "   "):
+                with self.subTest(modo=modo, motivo=motivo):
+                    datos = {"importacion": lote["id"], "modo_respuesta": modo}
+                    if motivo is not None:
+                        datos["motivo"] = motivo
+                    r = self.client.post(self.base + "confirmar-importacion/", datos, format="json")
+                    self.assertEqual(r.status_code, 400, r.data)
+                    self.assertIn("Registrá un motivo para el lote", str(r.data))
+                    self.assertEqual(self.huella(), antes)
+        r = self.client.post(self.base + "confirmar-importacion/",
+                             {"importacion": lote["id"], "motivo": MOTIVO}, format="json")
         self.assertEqual(r.status_code, 200, r.data)
-        self.assertIsNone(Afiliado.objects.get(documento="99018501").finalizado_en)
-        self.assertIsNotNone(Afiliado.objects.get(documento="99018502").finalizado_en)
         self.assertEqual([f["estado"] for f in Importacion.objects.get(pk=lote["id"]).filas],
                          ["valida", "valida", "aplicada"])
+        alta = Afiliado.objects.get(documento="99018503")
+        self.assertEqual(HistorialAfiliacion.objects.filter(afiliado=alta).first().motivo, MOTIVO)
+        self.assertIsNone(Afiliado.objects.get(documento="99018501").finalizado_en)
+        self.assertIsNotNone(Afiliado.objects.get(documento="99018502").finalizado_en)
 
     def test_bordes_de_fecha_baja_igual_a_desde_y_reingreso_dia_siguiente(self):
         self.existente(1, desde=date(2026, 6, 30))
