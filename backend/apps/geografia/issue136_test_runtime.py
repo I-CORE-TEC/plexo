@@ -5,7 +5,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from django.core.cache import caches
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
@@ -17,7 +17,7 @@ from apps.instituciones.models import Institucion
 from apps.registros.models import Ciudadano
 from .contrato import validar_catalogo
 from .issue136_test_puros import catalogo_ficticio
-from .models import Catalogo, Lugar
+from .models import Catalogo, Ejecucion, Lugar
 from .servicios import ambito, resolver
 from .sincronizacion import sincronizar
 
@@ -160,3 +160,89 @@ class MigracionLegadoGeografiaTest(TransactionTestCase):
             self.assertFalse(Lugar.objects.exists())
         finally:
             MigrationExecutor(connection).migrate(finales)
+
+
+class CronGeografiaTest(APITestCase):
+    """`--si-corresponde`: one-shot run for an external scheduler (Railway cron, crontab, CronJob)."""
+    modulo = "apps.geografia.management.commands.sincronizar_geografia"
+
+    def ejecutar(self, descargar_fn=None):
+        salida, errores = StringIO(), StringIO()
+        def cargar(**kwargs):
+            return sincronizar(descargar_fn=descargar_fn or (lambda: validar_catalogo(catalogo_ficticio())), **kwargs)
+        with patch(self.modulo + ".sincronizar", side_effect=cargar) as intento, patch(self.modulo + ".time.sleep") as espera:
+            try:
+                call_command("sincronizar_geografia", si_corresponde=True, stdout=salida, stderr=errores)
+                fallo = None
+            except CommandError as error:
+                fallo = error
+        espera.assert_not_called()
+        return intento, salida.getvalue(), errores.getvalue(), fallo
+
+    def test_catalogo_vacio_carga_publica_y_registra_la_corrida(self):
+        intento, salida, _, fallo = self.ejecutar()
+        self.assertIsNone(fallo)
+        self.assertEqual(intento.call_count, 1)
+        self.assertIn("Geografía cron: corresponde actualizar.", salida)
+        self.assertIn("Geografía: 4 entidades; publicado=True.", salida)
+        self.assertEqual(Catalogo.objects.get(pk=1).version, 1)
+        corrida = Ejecucion.objects.get()
+        self.assertEqual((corrida.resultado, corrida.entidades), ("publicado", 4))
+
+    def test_catalogo_vigente_termina_sin_descargar_y_registra_la_omision(self):
+        sincronizar(descargar_fn=lambda: validar_catalogo(catalogo_ficticio()))
+        intento, salida, _, fallo = self.ejecutar()
+        self.assertIsNone(fallo)
+        intento.assert_not_called()
+        self.assertIn("Geografía cron: catálogo vigente o reintento pendiente; no se descarga.", salida)
+        corrida = Ejecucion.objects.get()
+        self.assertEqual((corrida.resultado, corrida.entidades), ("omitido", None))
+
+    def test_falla_sale_con_error_conserva_catalogo_y_registra_el_fallo(self):
+        sincronizar(descargar_fn=lambda: validar_catalogo(catalogo_ficticio()))
+        Catalogo.objects.filter(pk=1).update(actualizado=timezone.now() - timedelta(days=8), intento=None)
+        def fallar():
+            raise ValueError("Falla sintética de origen")
+        intento, _, errores, fallo = self.ejecutar(fallar)
+        self.assertIsInstance(fallo, CommandError)
+        self.assertEqual(intento.call_count, 1)
+        self.assertIn("se conserva el catálogo anterior", str(fallo))
+        self.assertEqual(Catalogo.objects.get(pk=1).version, 1)
+        self.assertEqual(Lugar.objects.filter(activo=True).count(), 4)
+        self.assertEqual(Ejecucion.objects.get().resultado, "fallo")
+
+    def test_no_combina_con_periodico_ni_seco(self):
+        for otra in ("periodico", "seco"):
+            with self.subTest(otra=otra), self.assertRaises(CommandError):
+                call_command("sincronizar_geografia", si_corresponde=True, **{otra: True}, stdout=StringIO())
+        self.assertFalse(Ejecucion.objects.exists())
+
+    def test_historial_conserva_las_ultimas_corridas(self):
+        sincronizar(descargar_fn=lambda: validar_catalogo(catalogo_ficticio()))
+        for _ in range(Ejecucion.CONSERVAR + 3):
+            self.ejecutar()
+        self.assertEqual(Ejecucion.objects.count(), Ejecucion.CONSERVAR)
+
+    def test_estado_expone_intento_y_ultimas_corridas(self):
+        self.ejecutar()
+        self.ejecutar()
+        usuario = Usuario.objects.create_user("cron136@example.invalid", uuid4().hex)
+        self.client.force_authenticate(usuario)
+        datos = self.client.get("/api/geografia/estado/").data
+        self.assertEqual(datos["version"], 1)
+        self.assertIsNotNone(datos["intento"])
+        self.assertEqual([e["resultado"] for e in datos["ejecuciones"]], ["omitido", "publicado"])
+        self.assertEqual(set(datos["ejecuciones"][0]), {"momento", "resultado", "entidades"})
+
+    def test_iac_versionada_de_railway_invoca_la_corrida_programada(self):
+        import re
+        import shlex
+        from pathlib import Path
+        iac = (Path(__file__).resolve().parents[3] / ".railway" / "railway.ts").read_text(encoding="utf-8")
+        self.assertIn('restartPolicyType: "NEVER"', iac)
+        self.assertRegex(iac, r'cronSchedule: "[^"]+"')
+        argumentos = shlex.split(re.search(r'startCommand: "([^"]+)"', iac).group(1))
+        self.assertEqual(argumentos[:4], ["/entrypoint.sh", "python", "manage.py", "sincronizar_geografia"])
+        with patch(self.modulo + ".Command.corrida_programada", return_value=None) as corrida:
+            call_command(*argumentos[3:], stdout=StringIO())
+        corrida.assert_called_once()
