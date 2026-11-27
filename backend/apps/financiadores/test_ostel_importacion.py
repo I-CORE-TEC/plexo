@@ -33,7 +33,7 @@ class ImportacionAdministrativaTests(TestCase):
         }, format="multipart")
 
     def aplicar(self, lote):
-        return self.client.post(self.base + "confirmar-importacion/", {"importacion": lote["id"]}, format="json")
+        return self.client.post(self.base + "confirmar-importacion/", {"motivo": "Padrón OSTEL de prueba", "importacion": lote["id"]}, format="json")
 
     def corregir(self, lote, indice=0, **extra):
         fila = lote["filas"][indice]
@@ -165,7 +165,9 @@ class ImportacionAdministrativaTests(TestCase):
         self.aplicar(aplicada.data)
         self.assertEqual(Afiliado.objects.count(), 1)
 
-    def test_opcion_cobertura_altas_y_conflictos_conservan_ambos_estados(self):
+    def test_opcion_cobertura_rige_altas_y_existentes_conservan_la_suya(self):
+        # Decisión 27/11: en el padrón mensual la diferencia con la opción del lote
+        # no es un conflicto; la persona existente conserva su cobertura.
         for n, habilitada in ((21, True), (22, False)):
             with self.subTest(habilitada=habilitada):
                 filas = [_persona(n, NUMERO=str(n))]
@@ -174,16 +176,12 @@ class ImportacionAdministrativaTests(TestCase):
                 self.aplicar(lote)
                 obj = Afiliado.objects.get(numero_interno=str(n))
                 self.assertEqual(obj.cobertura_habilitada, habilitada)
-                conflicto = self.preview(filas, cobertura_habilitada=not habilitada).data
-                self.assertEqual(conflicto["resumen"]["revision"], 1)
-                self.assertEqual(conflicto["filas"][0]["conflicto_cobertura"]["actual"], habilitada)
-                self.assertEqual(self.aplicar(conflicto).data["resumen"]["aplicada"], 0)
-                revisada = self.corregir(conflicto).data
-                self.assertEqual(revisada["resumen"]["valida"], 1)
-                aplicada = self.aplicar(revisada).data
+                distinta = self.preview(filas, cobertura_habilitada=not habilitada).data
+                self.assertEqual((distinta["resumen"]["revision"], distinta["resumen"]["valida"]), (0, 1))
+                self.assertNotIn("conflicto_cobertura", distinta["filas"][0])
+                aplicada = self.aplicar(distinta).data
                 self.assertEqual(aplicada["resumen"]["aplicada"], 1)
                 self.assertEqual(aplicada["resumen"]["cobertura_habilitada"], not habilitada)
-                self.assertTrue(aplicada["filas"][0]["motivo_cobertura"])
                 obj.refresh_from_db()
                 self.assertEqual(obj.cobertura_habilitada, habilitada)
 
@@ -297,10 +295,8 @@ class ImportacionAdministrativaTests(TestCase):
                                      CODPAR="SIN-DICCIONARIO", NROREF="NO-ES-TITULAR")],
                             cobertura_habilitada=False)
         self.assertEqual(lote.status_code, 200, lote.data)
-        self.assertEqual(lote.data["resumen"]["revision"], 1)
-        corregida = self.corregir(lote.data)
-        self.assertEqual(corregida.status_code, 200, corregida.data)
-        aplicada = self.aplicar(corregida.data)
+        self.assertEqual(lote.data["resumen"]["revision"], 0)
+        aplicada = self.aplicar(lote.data)
         self.assertEqual(aplicada.data["resumen"]["aplicada"], 1)
         afiliado.refresh_from_db()
         self.assertEqual(afiliado.titular_id, titular.pk)

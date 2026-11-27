@@ -585,11 +585,11 @@ def _rechazar_novedades(importacion, usuario):
         raise ValidationError("Las novedades se resuelven desde su circuito administrativo, sin aplicar efectos.")
 
 
-def aplicar_importacion(*, importacion, usuario, revisiones_duplicados=None, revisiones_cobertura=None):
+def aplicar_importacion(*, importacion, usuario, revisiones_duplicados=None, revisiones_cobertura=None, motivo=None):
     _rechazar_novedades(importacion, usuario)
     if importacion.version == 3:
         from .ostel_importacion import aplicar
-        return aplicar(importacion=importacion, usuario=usuario)
+        return aplicar(importacion=importacion, usuario=usuario, motivo=motivo)
     """Cada fila y su efecto se confirman juntos; interrumpir permite retomar el lote."""
     requerir_financiador(usuario, importacion.financiador_id, escritura=True)
     revisiones = revisiones_duplicados or {}
