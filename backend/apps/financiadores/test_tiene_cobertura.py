@@ -215,3 +215,48 @@ class SeleccionConservaMensajesTests(ManualSetup, TestCase):
         m.Financiador.objects.filter(pk=self.financiador.pk).update(activo=False)
         with self.assertRaisesMessage(ValidationError, "La afiliación no está vigente para una nueva selección."):
             self.seleccionar()
+
+
+class AdmisionUsaLaReglaComunTests(TestCase):
+    """Admission (`resumenes_administrativos`) decides selectability with `tiene_cobertura`."""
+
+    def setUp(self):
+        from .test_administrativa import CoberturaAdministrativaTests
+        self.caso = CoberturaAdministrativaTests("test_admision_ve_padron_sin_caso_ni_historia_y_no_crea_seleccion")
+        self.caso.setUp()
+
+    def resumen(self):
+        from .administrativa import resumenes_administrativos
+        return resumenes_administrativos([self.caso.paciente])[self.caso.paciente.pk]
+
+    def test_afiliacion_vigente_sigue_seleccionable(self):
+        afiliacion = self.resumen()["afiliaciones"][0]
+        self.assertEqual((afiliacion["seleccionable"], afiliacion["motivo"]), (True, ""))
+
+    def test_financiador_inactivo_no_se_ofrece_en_admision(self):
+        m.Financiador.objects.filter(pk=self.caso.afiliado.financiador_id).update(activo=False)
+        dato = self.resumen()
+        self.assertEqual((dato["estado"], dato["afiliaciones"]), ("sin_padron", []))
+
+    def test_plan_inactivo_conserva_su_mensaje(self):
+        m.Plan.objects.filter(pk=self.caso.plan.pk).update(activo=False)
+        afiliacion = self.resumen()["afiliaciones"][0]
+        self.assertFalse(afiliacion["seleccionable"])
+        self.assertEqual(afiliacion["motivo"], "El plan está inactivo. Revisá el padrón con el financiador.")
+
+    def test_motivo_por_cada_causa_de_no_cobertura(self):
+        from .administrativa import _motivo_no_seleccionable
+        afiliado = m.Afiliado.objects.select_related("financiador", "plan").get(pk=self.caso.afiliado.pk)
+        no_vigente = "La afiliación no está vigente para una nueva selección. Los casos anteriores conservan su afiliación."
+        casos = {
+            "cobertura_habilitada": (False, "Registro sólo administrativo, sin habilitación de cobertura."),
+            "finalizado_en": (timezone.now(), no_vigente),
+            "desde": (timezone.localdate() + timedelta(days=1), no_vigente),
+        }
+        for campo, (valor, esperado) in casos.items():
+            with self.subTest(campo=campo):
+                copia = m.Afiliado.objects.select_related("financiador", "plan").get(pk=afiliado.pk)
+                setattr(copia, campo, valor)
+                self.assertEqual(_motivo_no_seleccionable(copia), esperado)
+        afiliado.financiador.activo = False
+        self.assertEqual(_motivo_no_seleccionable(afiliado), no_vigente)

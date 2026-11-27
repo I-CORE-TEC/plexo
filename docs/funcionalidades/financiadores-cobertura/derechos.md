@@ -62,6 +62,16 @@ Cuando llegue la respuesta, se agrega un parámetro por financiador dentro de
 `tiene_cobertura`, con pruebas que usen los ejemplos de OSTEL. Hasta entonces,
 la cobertura se corta a mano con **Finalizar afiliación**.
 
+## Admisión usa la regla única (#216)
+
+El resumen de Admisión (`resumenes_administrativos`) ya listaba sólo
+afiliaciones con cobertura (`afiliados_vigentes()`) de financiadores activos.
+Ahora también decide si cada una es seleccionable con `tiene_cobertura`, más el
+control de plan activo. Conserva los mensajes «Registro sólo administrativo,
+sin habilitación de cobertura.» y «El plan está inactivo. Revisá el padrón con
+el financiador.»; cualquier otra causa usa «La afiliación no está vigente para
+una nueva selección. Los casos anteriores conservan su afiliación.».
+
 ## Retirado el 26/11/2026 (#216)
 
 Se retiraron los borradores de reglas de derechos, el simulador de plazo, la
