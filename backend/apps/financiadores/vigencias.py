@@ -3,7 +3,7 @@ from datetime import datetime, time
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Case, CharField, Q, Value, When
 from django.utils import timezone
 
 from .models import Afiliado, Convenio, Financiador, HistorialAfiliacion, Plan
@@ -56,6 +56,38 @@ def q_cobertura(fecha=None, prefijo=""):
     fecha = fecha or timezone.localdate()
     return Q(**{f"{prefijo}cobertura_habilitada": True, f"{prefijo}finalizado_en__isnull": True,
                 f"{prefijo}desde__lte": fecha, f"{prefijo}financiador__activo": True})
+
+
+def derecho_padron(afiliado, fecha=None):
+    """Padrón label for an affiliate; `"vigentes"` exactly when `tiene_cobertura` is true.
+
+    The label order (finalizadas, administrativas, futuras, financiador_inactivo)
+    predates the rule and differs from the `tiene_cobertura` motivo order only
+    for which label wins; it never changes who is covered. Needs the
+    financiador loaded (select_related) to avoid one query per row.
+    """
+    fecha = fecha or timezone.localdate()
+    if afiliado.finalizado_en is not None:
+        return "finalizadas"
+    if not afiliado.cobertura_habilitada:
+        return "administrativas"
+    if afiliado.desde > fecha:
+        return "futuras"
+    if not afiliado.financiador.activo:
+        return "financiador_inactivo"
+    return "vigentes"
+
+
+def expr_derecho_padron(fecha=None):
+    """ORM equivalent of `derecho_padron`, for annotating and filtering the padrón."""
+    fecha = fecha or timezone.localdate()
+    return Case(
+        When(finalizado_en__isnull=False, then=Value("finalizadas")),
+        When(cobertura_habilitada=False, then=Value("administrativas")),
+        When(desde__gt=fecha, then=Value("futuras")),
+        When(financiador__activo=False, then=Value("financiador_inactivo")),
+        default=Value("vigentes"), output_field=CharField(),
+    )
 
 
 def afiliados_vigentes():

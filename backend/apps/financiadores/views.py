@@ -410,6 +410,18 @@ class FinanciadorViewSet(NovedadesMixin, PadronMixin, CoberturaBaseViewSet):
         org = self.organizacion()
         return consultar_actividad(self, request, org)
 
+    @staticmethod
+    def _derecho_ficha(afiliado):
+        """`derecho` follows the padrón rule; `estado` keeps its older vocabulary."""
+        derecho = vigencias.derecho_padron(afiliado)
+        # `estado` keeps its date-only meaning; only an inactive financier adds a value.
+        if derecho == "financiador_inactivo":
+            estado = derecho
+        else:
+            estado = ("finalizada" if afiliado.finalizado_en else
+                      "futura" if afiliado.desde > timezone.localdate() else "vigente")
+        return {"derecho": derecho, "estado": estado}
+
     def _afiliado_ficha(self, request, org):
         afiliado_id = entero().run_validation(request.query_params.get("afiliado"))
         return get_object_or_404(m.Afiliado.objects.select_related("plan", "financiador"), pk=afiliado_id, financiador=org)
@@ -543,7 +555,7 @@ class FinanciadorViewSet(NovedadesMixin, PadronMixin, CoberturaBaseViewSet):
                       "plan_nombre": afiliado.plan.nombre if afiliado.plan_id else None,
                       "desde": afiliado.desde, "finalizado_en": afiliado.finalizado_en,
                       "cobertura_habilitada": afiliado.cobertura_habilitada, "numero_interno": afiliado.numero_interno,
-                      "estado": "finalizada" if afiliado.finalizado_en else "futura" if afiliado.desde > timezone.localdate() else "vigente"},
+                      **self._derecho_ficha(afiliado)},
             resumen=resumen_actividad(qs), limite_exportacion=LIMITE_EXPORTACION,
             cupos=self._cupos_ficha(afiliado),
             historial=[{"tipo": h.tipo, "plan_nombre": h.plan.nombre if h.plan_id else None,

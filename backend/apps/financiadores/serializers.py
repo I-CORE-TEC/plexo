@@ -153,6 +153,7 @@ class AfiliadoSerializer(serializers.ModelSerializer):
         from apps.geografia.servicios import presentacion
         return presentacion(obj, "geografia_laboral")
     vigente = serializers.SerializerMethodField()
+    derecho = serializers.SerializerMethodField()
     estado_administrativo = serializers.SerializerMethodField()
     plan_tipo = serializers.CharField(source="plan.tipo", read_only=True, default="")
 
@@ -164,20 +165,27 @@ class AfiliadoSerializer(serializers.ModelSerializer):
         from .padron import estado_administrativo
         return estado_administrativo(obj)
 
-    def get_vigente(self, obj) -> bool:
-        from .vigencias import tiene_cobertura
+    def _con_financiador(self, obj):
         # A padrón page shares one financiador: load it once, not once per row.
         if not models.Afiliado.financiador.is_cached(obj):
             cache = self.__dict__.setdefault("_financiadores", {})
             if obj.financiador_id not in cache:
                 cache[obj.financiador_id] = models.Financiador.objects.get(pk=obj.financiador_id)
             obj.financiador = cache[obj.financiador_id]
-        return tiene_cobertura(obj)[0]
+        return obj
+
+    def get_vigente(self, obj) -> bool:
+        from .vigencias import tiene_cobertura
+        return tiene_cobertura(self._con_financiador(obj))[0]
+
+    def get_derecho(self, obj) -> str:
+        from .vigencias import derecho_padron
+        return derecho_padron(self._con_financiador(obj))
 
     class Meta:
         model = models.Afiliado
         from .padron import CAMPOS_GENERALES
-        fields = ["id", "numero", "numero_interno", "titular_nombre", "documento", "nombre", "plan", "desde", "vigente", "finalizado_en", "motivo_finalizacion", "revision", "estado_administrativo", "plan_tipo", *CAMPOS_GENERALES, "geografia", "geografia_laboral"]
+        fields = ["id", "numero", "numero_interno", "titular_nombre", "documento", "nombre", "plan", "desde", "vigente", "derecho", "finalizado_en", "motivo_finalizacion", "revision", "estado_administrativo", "plan_tipo", *CAMPOS_GENERALES, "geografia", "geografia_laboral"]
         read_only_fields = ["numero_interno"]
 
 

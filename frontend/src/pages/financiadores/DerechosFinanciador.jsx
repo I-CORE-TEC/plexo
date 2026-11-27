@@ -14,6 +14,7 @@ const ETIQUETAS_DERECHO = {
   administrativas: "Deshabilitada administrativamente",
   futuras: "Futura",
   finalizadas: "Finalizada",
+  financiador_inactivo: "Financiador inactivo",
 };
 
 function identidadAfiliado(fila) {
