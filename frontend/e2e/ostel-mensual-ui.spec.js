@@ -135,6 +135,20 @@ test("las bajas exigen confirmación explícita y envían confirmar_bajas", asyn
   expect(estado.aplicar).toEqual([{ importacion: 300, grupos: ["baja"], motivo: "Bajas informadas por OSTEL", confirmar_bajas: true }]);
 });
 
+test("una baja que ya está en el padrón se muestra como ya registrada y no pide aplicar", async ({ page }) => {
+  const lote = loteMensual();
+  lote.filas = [...lote.filas, fila(7, "baja", { estado: "aplicada", ya_registrada: true, fecha_baja: "2026-07-01", afiliado: 507 })];
+  const estado = await escenario(page, { lote: conResumen(lote) });
+  await revisar(page);
+  await page.getByRole("tab", { name: "Bajas 2", exact: true }).click();
+  await expect(page.getByText("La baja del 01/07/2026 ya está en el padrón. No hay nada que aplicar.")).toBeVisible();
+  await expect(page.getByRole("tabpanel").getByText("Ya registrada", { exact: true })).toBeVisible();
+  // Sólo la baja nueva queda pendiente; la ya registrada no se vuelve a enviar.
+  await expect(page.getByRole("button", { name: "Aplicar bajas (1)", exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Conflictos 1", exact: true }).click();
+  expect(estado.aplicar).toEqual([]);
+});
+
 test("una tanda sin progreso detiene el bucle", async ({ page }) => {
   const estado = await escenario(page, { sinProgreso: true });
   await revisar(page);

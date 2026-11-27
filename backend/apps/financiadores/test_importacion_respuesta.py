@@ -35,7 +35,7 @@ class DatosRespuesta:
             cobertura_habilitada=False)
 
     def confirmar(self, lote, **datos):
-        return self.client.post(self.url, {"importacion": lote.pk, **datos}, format="json")
+        return self.client.post(self.url, {"motivo": "Padrón OSTEL de prueba", "importacion": lote.pk, **datos}, format="json")
 
 
 class RespuestaImportacionTests(DatosRespuesta, TestCase):

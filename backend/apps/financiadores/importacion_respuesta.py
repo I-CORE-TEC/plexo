@@ -24,7 +24,7 @@ def marcar_respuesta(lote, *, huella_cliente, huella_base, anteriores):
     return lote
 
 
-def confirmar_con_cambios(*, importacion, usuario, huella_cliente=None):
+def confirmar_con_cambios(*, importacion, usuario, huella_cliente=None, motivo=None):
     from django.db import transaction
     from .models import Importacion
     from .ostel_importacion import aplicar
@@ -36,7 +36,7 @@ def confirmar_con_cambios(*, importacion, usuario, huella_cliente=None):
         base = huella_lote(lote)
         anteriores = {fila["fila"]: deepcopy(fila) for fila in lote.filas} if huella_cliente == base else {}
         # aplicar conserva autorización, locks, validación y auditoría de #186.
-        resultado = aplicar(importacion=lote, usuario=usuario)
+        resultado = aplicar(importacion=lote, usuario=usuario, motivo=motivo)
     # Los objetos locales son snapshots; no se recarga después de liberar el
     # lock. Formatear fuera conserva commit antes de respuesta, como en #186.
     return marcar_respuesta(resultado, huella_cliente=huella_cliente,

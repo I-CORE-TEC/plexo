@@ -911,13 +911,14 @@ class FinanciadorViewSet(NovedadesMixin, PadronMixin, CoberturaBaseViewSet):
         d = entrada.validated_data
         modo = d.pop("modo_respuesta")
         huella = d.pop("huella_lote", None)
+        motivo = d.pop("motivo", None)
         if modo == "completa":
-            obj = aplicar_importacion(usuario=request.user, **d)
+            obj = aplicar_importacion(usuario=request.user, motivo=motivo, **d)
             return Response(s.ImportacionSerializer(obj).data)
         if d["importacion"].version != 3:
             raise ValidationError("La respuesta acotada corresponde sólo al formato OSTEL.")
         from .importacion_respuesta import confirmar_con_cambios
-        obj = confirmar_con_cambios(importacion=d["importacion"], usuario=request.user, huella_cliente=huella)
+        obj = confirmar_con_cambios(importacion=d["importacion"], usuario=request.user, huella_cliente=huella, motivo=motivo)
         serializer = s.ImportacionCambiosSerializer if obj.modo_respuesta == "cambios" else s.ImportacionRespuestaCompletaSerializer
         response = Response(serializer(obj).data)
         response["Cache-Control"] = "private, no-store"
