@@ -2,6 +2,7 @@
 
 Una transacción crea el escenario completo y su marcador. Una repetición sólo
 devuelve el inventario actual; no restablece claves, permisos ni pendientes.
+Requiere `SEED_DEMO_OSTEL=True`, PostgreSQL y un entorno no productivo.
 """
 import json
 from datetime import time, timedelta
@@ -21,6 +22,7 @@ from apps.agenda.models import Agenda, Disponibilidad
 from apps.casos import motor
 from apps.casos.models import Caso
 from apps.demo.claves import clave_demo
+from apps.demo.entorno import exigir_entorno_de_prueba
 from apps.farmacia import motor as farmacia_motor
 from apps.farmacia.models import Deposito, Insumo, LineaPedido, Lote, Pedido
 from apps.financiadores import autorizaciones, models as m
@@ -75,14 +77,15 @@ def clave(texto):
 
 
 def exigir_destino():
-    if settings.ENTORNO != "demo":
-        raise CommandError(f"seed_ostel_demo exige ENTORNO=demo; destino actual ENTORNO={settings.ENTORNO}. No se modificó ningún dato.")
+    exigir_entorno_de_prueba("seed_ostel_demo")
+    if not settings.SEED_DEMO_OSTEL:
+        raise CommandError("seed_ostel_demo requiere SEED_DEMO_OSTEL=True. No se modificó ningún dato.")
     if connection.vendor != "postgresql":
         raise CommandError("seed_ostel_demo exige PostgreSQL; no se modificó ningún dato.")
 
 
 class Command(BaseCommand):
-    help = "Agrega OSTEL y tres prestadores ficticios sin borrar ni restablecer datos."
+    help = "Agrega OSTEL sin borrar datos. Requiere SEED_DEMO_OSTEL=True y no admite producción."
 
     def handle(self, *args, **options):
         exigir_destino()

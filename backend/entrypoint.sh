@@ -67,12 +67,6 @@ else
   echo "EJECUTAR_MIGRACIONES=0: no migro, uso el esquema existente."
 fi
 
-# Carga datos de demostración si SEED_DEMO=1 (idempotente del lado del comando).
-if [ "$SEED_DEMO" = "1" ]; then
-  echo "Sembrando datos de demo..."
-  python manage.py seed_demo || echo "seed_demo falló o ya estaba sembrado; continúo."
-fi
-
 # Carga el escenario de guardia si SEED_GUARDIA=1. Con --si-vacio solo siembra
 # cuando la base no tiene datos, así un reinicio no pisa los casos creados.
 if [ "$SEED_GUARDIA" = "1" ]; then

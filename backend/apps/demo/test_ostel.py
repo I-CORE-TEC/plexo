@@ -28,13 +28,17 @@ from apps.registros.models import Ciudadano, HistoriaClinica
 
 
 class OstelGuardasTests(SimpleTestCase):
-    def test_rechaza_produccion_y_desarrollo_antes_de_consultar(self):
-        for entorno in ("produccion", "desarrollo"):
-            with self.subTest(entorno=entorno), override_settings(ENTORNO=entorno):
-                with self.assertRaisesMessage(CommandError, f"ENTORNO={entorno}"):
-                    call_command("seed_ostel_demo", stdout=StringIO())
+    @override_settings(ENTORNO="produccion", SEED_DEMO_OSTEL=True)
+    def test_production_refuses_before_database_access(self):
+        with self.assertRaisesMessage(CommandError, "ENTORNO=produccion"):
+            call_command("seed_ostel_demo", stdout=StringIO())
 
-    @override_settings(ENTORNO="demo")
+    @override_settings(ENTORNO="demo", SEED_DEMO_OSTEL=False, SEED_DEMO=True)
+    def test_disabled_flag_refuses_before_database_access(self):
+        with self.assertRaisesMessage(CommandError, "SEED_DEMO_OSTEL=True"):
+            call_command("seed_ostel_demo", stdout=StringIO())
+
+    @override_settings(ENTORNO="desarrollo", SEED_DEMO_OSTEL=True)
     def test_rechaza_motor_sin_bloqueo_postgresql_antes_de_consultar(self):
         with patch.object(connection, "vendor", "sqlite"):
             with self.assertRaisesMessage(CommandError, "exige PostgreSQL"):
@@ -42,7 +46,7 @@ class OstelGuardasTests(SimpleTestCase):
 
 
 @skipUnless(connection.vendor == "postgresql", "Requiere PostgreSQL aislado; SQLite no demuestra la carga.")
-@override_settings(ENTORNO="demo")
+@override_settings(ENTORNO="desarrollo", SEED_DEMO_OSTEL=True, SEED_DEMO=False)
 class OstelCargaTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -176,7 +180,7 @@ class OstelCargaTests(TestCase):
 
 
 @skipUnless(connection.vendor == "postgresql", "Requiere PostgreSQL aislado.")
-@override_settings(ENTORNO="demo")
+@override_settings(ENTORNO="demo", SEED_DEMO_OSTEL=True)
 class OstelTurnosTempranosTests(TestCase):
     def test_miercoles_antes_de_abrir_no_duplica_inicio_por_el_fin_de_semana(self):
         ahora = timezone.make_aware(datetime(2026, 11, 4, 7, 0))
@@ -198,7 +202,7 @@ class OstelTurnosTempranosTests(TestCase):
 
 
 @skipUnless(connection.vendor == "postgresql", "Requiere PostgreSQL aislado.")
-@override_settings(ENTORNO="demo")
+@override_settings(ENTORNO="demo", SEED_DEMO_OSTEL=True)
 class OstelAtomicidadTests(TestCase):
     def test_colision_no_se_apropia_de_datos(self):
         org = m.Financiador.objects.create(nombre=ORGANIZACION, tipo="obra_social")
@@ -226,7 +230,7 @@ class OstelAtomicidadTests(TestCase):
 
 
 @skipUnless(connection.vendor == "postgresql", "Requiere dos conexiones PostgreSQL reales.")
-@override_settings(ENTORNO="demo")
+@override_settings(ENTORNO="demo", SEED_DEMO_OSTEL=True)
 class OstelConcurrenciaTests(TransactionTestCase):
     def test_dos_cargas_simultaneas_crean_un_solo_escenario(self):
         barrera = Barrier(2)
