@@ -74,9 +74,11 @@ export function parametrosConsultaPadron(parametros) {
   return consulta;
 }
 
-// Listado y ficha usan el mismo derecho; la ficha histórica entrega `estado`
-// en lugar de `vigente`. No se deducen derechos a partir de fechas o códigos.
+// Listado y ficha usan el mismo derecho. El servidor envía `derecho` con la
+// regla única (incluye financiador inactivo); el resto es respaldo para filas
+// sin ese campo. No se deducen derechos a partir de fechas o códigos.
 export function derechoAfiliacionPadron(fila) {
+  if (fila.derecho) return fila.derecho;
   if (fila.finalizado_en || fila.estado === "finalizada") return "finalizadas";
   if (fila.cobertura_habilitada === false) return "administrativas";
   if (fila.vigente === true) return "vigentes";

@@ -104,3 +104,15 @@ test("chips usan los parámetros históricos y los flt_ aunque la columna esté 
   assert.deepEqual(controlesFiltroPadron(COLUMNAS_PADRON.find((c) => c.key === "derecho")), []);
   assert.deepEqual(controlesFiltroPadron(COLUMNAS_PADRON.find((c) => c.key === "plan")).map((c) => c.clave), ["flt_plan_vacio"]);
 });
+
+test("derecho enviado por el servidor prevalece; financiador inactivo no se muestra como aún no vigente", async () => {
+  const { derechoAfiliacionPadron } = await import("./padronTablaEstado.js");
+  const col = COLUMNAS_PADRON.find((c) => c.key === "derecho");
+  const inactivo = { vigente: false, finalizado_en: null, cobertura_habilitada: true, derecho: "financiador_inactivo" };
+  assert.equal(derechoAfiliacionPadron(inactivo), "financiador_inactivo");
+  assert.equal(valorColumnaPadron(inactivo, col), "Financiador inactivo");
+  const etiquetas = { vigentes: "Vigente", administrativas: "Sólo administrativa", futuras: "Aún no vigente", finalizadas: "Finalizada" };
+  for (const [derecho, etiqueta] of Object.entries(etiquetas)) assert.equal(valorColumnaPadron({ derecho }, col), etiqueta);
+  // Ficha histórica: `estado` del servidor sin `vigente`.
+  assert.equal(derechoAfiliacionPadron({ estado: "financiador_inactivo", derecho: "financiador_inactivo" }), "financiador_inactivo");
+});

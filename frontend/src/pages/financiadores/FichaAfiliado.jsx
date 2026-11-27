@@ -225,7 +225,7 @@ function FichaAfiliadoContenido() {
           {persona ? <p className="text-cifra font-bold leading-tight">{persona.nombre}</p> : ficha.error ? null : <Spinner label="Consultando ficha…" />}
         </div>
         {persona && <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={{ vigentes: "green", administrativas: "amber", finalizadas: "gray", futuras: "info" }[derecho] || "neutral"}>{valorColumnaPadron(persona, COLUMNA_DERECHO)}</Badge>
+          <Badge tone={{ vigentes: "green", administrativas: "amber", finalizadas: "gray", futuras: "info", financiador_inactivo: "gray" }[derecho] || "neutral"}>{valorColumnaPadron(persona, COLUMNA_DERECHO)}</Badge>
           {pendientes.data?.count > 0 && <Badge tone="amber">{plural(pendientes.data.count, "autorización pendiente", "autorizaciones pendientes")}</Badge>}
         </div>}
       </div>

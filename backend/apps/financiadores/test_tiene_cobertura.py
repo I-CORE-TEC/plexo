@@ -14,6 +14,7 @@ from apps.casos.models import Caso
 from . import autorizaciones as a, models as m
 from .cobertura import seleccionar_afiliacion
 from .preparacion import verificar_preparacion
+from .padron_consulta import valor_columna_padron
 from .serializers import AfiliadoSerializer
 from .test_autorizaciones_manuales import ManualSetup
 from .vigencias import afiliados_vigentes, q_cobertura, tiene_cobertura
@@ -260,3 +261,69 @@ class AdmisionUsaLaReglaComunTests(TestCase):
                 self.assertEqual(_motivo_no_seleccionable(copia), esperado)
         afiliado.financiador.activo = False
         self.assertEqual(_motivo_no_seleccionable(afiliado), no_vigente)
+
+
+class PadronDerechoTests(ManualSetup, APITestCase):
+    """The padrón `derecho` label follows the single rule, including the payer."""
+
+    ETIQUETAS = {"vigentes": "Vigente", "administrativas": "Sólo administrativa", "futuras": "Aún no vigente",
+                 "finalizadas": "Finalizada", "financiador_inactivo": "Financiador inactivo"}
+
+    def setUp(self):
+        super().setUp()
+        # Only the platform still reaches an inactive financier's padrón.
+        self.client.force_authenticate(Usuario.objects.create_superuser("plataforma@cobertura.local", "x"))
+        self.hoy = timezone.localdate()
+        nuevo = lambda numero, **datos: m.Afiliado.objects.create(
+            **{"financiador": self.financiador, "numero": numero, "documento": numero, "nombre": "Fila",
+               "desde": self.hoy, **datos})
+        self.filas = {
+            "vigentes": self.afiliado,
+            "administrativas": nuevo("90002", cobertura_habilitada=False),
+            "futuras": nuevo("90003", desde=self.hoy + timedelta(days=1)),
+            "finalizadas": nuevo("90004", finalizado_en=timezone.now()),
+        }
+
+    def listar(self, **parametros):
+        respuesta = self.client.get(f"/api/financiadores/{self.financiador.pk}/padron/", {"page_size": 50, **parametros})
+        self.assertEqual(respuesta.status_code, 200, respuesta.data)
+        return {fila["id"]: fila["derecho"] for fila in respuesta.data["results"]}
+
+    def inactivar(self):
+        m.Financiador.objects.filter(pk=self.financiador.pk).update(activo=False)
+
+    def test_financiador_activo_conserva_las_cuatro_etiquetas(self):
+        self.assertEqual(self.listar(estado="todos"), {a.pk: d for d, a in self.filas.items()})
+        for derecho, afiliado in self.filas.items():
+            with self.subTest(derecho=derecho):
+                self.assertEqual(set(self.listar(estado=derecho)), {afiliado.pk})
+                fila = m.Afiliado.objects.select_related("financiador").get(pk=afiliado.pk)
+                self.assertEqual(valor_columna_padron(fila, "derecho"), self.ETIQUETAS[derecho])
+
+    def test_financiador_inactivo_se_etiqueta_en_listado_exportacion_y_ficha(self):
+        self.inactivar()
+        listado = self.listar(estado="todos")
+        self.assertEqual(listado[self.afiliado.pk], "financiador_inactivo")
+        self.assertEqual(listado[self.filas["finalizadas"].pk], "finalizadas")
+        self.assertEqual(listado[self.filas["administrativas"].pk], "administrativas")
+        self.assertEqual(listado[self.filas["futuras"].pk], "futuras")
+        self.assertNotIn(self.afiliado.pk, self.listar(estado="vigentes"))
+        self.assertEqual(set(self.listar(estado="financiador_inactivo")), {self.afiliado.pk})
+        fila = m.Afiliado.objects.select_related("financiador").get(pk=self.afiliado.pk)
+        self.assertEqual(valor_columna_padron(fila, "derecho"), "Financiador inactivo")
+        ficha = self.client.get(f"/api/financiadores/{self.financiador.pk}/ficha-afiliado/", {"afiliado": self.afiliado.pk})
+        self.assertEqual(ficha.status_code, 200, ficha.data)
+        self.assertEqual(ficha.data["afiliado"]["derecho"], "financiador_inactivo")
+
+    def test_anotacion_y_valor_por_fila_coinciden(self):
+        from .padron_consulta import _anotar
+        from .vigencias import derecho_padron
+        otro = m.Financiador.objects.create(nombre="Inactivo", tipo="mutual", activo=False)
+        m.Afiliado.objects.create(financiador=otro, numero="90005", documento="90005", nombre="Fila", desde=self.hoy)
+        filas = _anotar(m.Afiliado.objects.select_related("financiador"), {"derecho"})
+        vistos = set()
+        for afiliado in filas:
+            with self.subTest(afiliado=afiliado.numero):
+                self.assertEqual(afiliado._padron_derecho, derecho_padron(afiliado))
+                vistos.add(afiliado._padron_derecho)
+        self.assertEqual(vistos, set(self.ETIQUETAS))
