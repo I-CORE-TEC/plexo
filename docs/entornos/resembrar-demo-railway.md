@@ -21,10 +21,10 @@ si se intentan habilitar. El nombre del entorno de Railway no reemplaza `ENTORNO
 
 | Necesito… | Camino | ¿Borra datos? |
 |---|---|---|
-| Dejar la demo como nueva | [A. Resembrado completo](#a-resembrado-completo) | **Sí, toda la base y los archivos del bucket** |
-| Que la demo parezca recién cargada a una hora fija | [B. Completo anclado](#b-resembrado-completo-anclado) | **Sí, todo** |
+| Dejar la demo como nueva | [A. Resembrado completo](#a-resembrado-completo) | **Sí, los datos de demo y sus archivos anteriores; no el catálogo Georef** |
+| Que la demo parezca recién cargada a una hora fija | [B. Completo anclado](#b-resembrado-completo-anclado) | Igual que A |
 | Agregar OSTEL a una demo que no lo tiene | [C. Solo OSTEL](#c-solo-ostel) | No |
-| Rehacer OSTEL porque se ensayó sobre él | Camino A (no hay borrado parcial) | **Sí, todo** |
+| Rehacer OSTEL porque se ensayó sobre él | Camino A (no hay borrado parcial) | Igual que A |
 | Renovar el turno y la sala de espera de la paciente del portal | [D. Solo el portal del paciente](#d-solo-el-portal-del-paciente) | No |
 | Comprobar que todas las cuentas entran | [Verificar los ingresos](#verificar-los-ingresos) | No |
 
@@ -48,8 +48,13 @@ si se intentan habilitar. El nombre del entorno de Railway no reemplaza `ENTORNO
 
 ## A. Resembrado completo
 
-`seed_entorno_demo` **vacía toda la base** y carga la demo general. Si el bucket
-está configurado, también borra los archivos anteriores de `uploads/` y
+`seed_entorno_demo` **borra los datos de la demo anterior** y carga la demo general.
+Conserva el catálogo oficial de Georef, su historial de ejecuciones y las
+ubicaciones sin referencias a lugares manuales privados. Borra los lugares
+manuales y las ubicaciones que los usan junto con sus organizaciones anteriores.
+Si el catálogo estaba vacío, la demo se carga igual; el cron lo poblará.
+
+Si el bucket está configurado, también borra los archivos anteriores de `uploads/` y
 `facturas/` después del commit. Conserva archivos ajenos a esos prefijos y los
 adjuntos nuevos de la demo. Mientras corre, las tablas quedan bloqueadas.
 
