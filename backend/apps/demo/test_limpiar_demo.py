@@ -196,6 +196,46 @@ class DemoCleanupTests(TransactionTestCase):
             self.cleanup("--importaciones", str(self.other_batch.pk), "--adjunto-factura", self.invoice.numero, "--aplicar")
         self.assert_intact()
 
+    def test_titular_selected_without_family_refuses(self):
+        document = self.affiliate.documento
+        with self.assertRaisesMessage(CommandError, "Afiliado.titular"):
+            self.cleanup("--afiliados-documento", f"{document}-{document}", "--aplicar")
+        self.assert_intact()
+        self.family.refresh_from_db()
+        self.assertEqual(self.family.titular_id, self.affiliate.pk)
+        self.assertTrue(m.HistorialAfiliacion.objects.filter(pk=self.history.pk).exists())
+
+    def test_family_member_only_keeps_titular(self):
+        document = self.family.documento
+        self.cleanup("--afiliados-documento", f"{document}-{document}", "--aplicar")
+        self.assertFalse(m.Afiliado.objects.filter(pk=self.family.pk).exists())
+        self.assertTrue(m.Afiliado.objects.filter(pk=self.affiliate.pk).exists())
+        self.assertTrue(m.Afiliado.objects.filter(pk=self.retained.pk).exists())
+
+    def test_other_funder_invoice_number_not_touched(self):
+        self.other_invoice.numero = "DEMO-OTHER-001"
+        self.other_invoice.save(update_fields=["numero"])
+        with self.assertRaisesMessage(CommandError, "RegistroFactura"):
+            self.cleanup("--adjunto-factura", self.other_invoice.numero, "--aplicar")
+        self.assert_intact()
+        self.other_invoice.refresh_from_db()
+        self.assertEqual(self.other_invoice.adjunto_ruta, "other-invoice.pdf")
+        self.assertTrue(storages["facturas"].exists("other-invoice.pdf"))
+
+    def test_other_funder_request_refused(self):
+        agreement = m.Convenio.objects.create(
+            institucion=self.request.institucion, financiador=self.foreign.financiador, creado_por=self.user,
+        )
+        request = m.SolicitudAutorizacion.objects.create(
+            origen="manual", institucion=agreement.institucion, financiador=agreement.financiador,
+            convenio=agreement, afiliado=self.foreign, comun=self.request.comun,
+            cantidad_solicitada=1, creado_por=self.user,
+        )
+        with self.assertRaisesMessage(CommandError, "SolicitudAutorizacion: IDs fuera del financiador"):
+            self.cleanup("--solicitudes", str(request.pk), "--aplicar")
+        self.assert_intact()
+        self.assertTrue(m.SolicitudAutorizacion.objects.filter(pk=request.pk).exists())
+
     def test_bucket_failure_reports_orphan_but_cannot_undo_commit(self):
         with patch.object(storages["facturas"], "delete", side_effect=OSError("simulated storage failure")):
             with self.assertLogs("apps.demo.archivos", level="ERROR"):
