@@ -122,9 +122,11 @@ export default function ImportacionAdministrativa({ organizacion, scope, formato
   function detalle(f) {
     const grupo = grupoDe(f);
     return <div className="space-y-1">
-      <div className="flex items-center gap-1.5"><span>{ESTADOS[f.estado] || f.estado}</span>{f.advertencias?.length > 0 && <Ayuda align="right" etiqueta={`Advertencias de la fila ${f.fila_excel}`}>{f.advertencias.map((a) => <span key={a} className="block">{a}</span>)}</Ayuda>}</div>
+      <div className="flex items-center gap-1.5"><span>{f.ya_registrada ? "Ya registrada" : ESTADOS[f.estado] || f.estado}</span>{f.advertencias?.length > 0 && <Ayuda align="right" etiqueta={`Advertencias de la fila ${f.fila_excel}`}>{f.advertencias.map((a) => <span key={a} className="block">{a}</span>)}</Ayuda>}</div>
       {mensual && grupo === "modificacion" && <Diferencias fila={f} />}
-      {mensual && grupo === "baja" && f.fecha_baja && <p>Baja el {fechaCalendario(f.fecha_baja)}. La afiliación termina ese día.</p>}
+      {mensual && grupo === "baja" && f.fecha_baja && <p>{f.ya_registrada
+        ? `La baja del ${fechaCalendario(f.fecha_baja)} ya está en el padrón. No hay nada que aplicar.`
+        : `Baja el ${fechaCalendario(f.fecha_baja)}. La afiliación termina ese día.`}</p>}
       {mensual && grupo === "reingreso" && f.fecha_ingreso && <p>Reingresa el {fechaCalendario(f.fecha_ingreso)} con su plan anterior: {nombrePlan(f.plan_anterior)}.</p>}
       {f.errores?.length > 0 && <ul className="list-disc pl-4 text-badge-error-fg">{f.errores.map((e) => <li key={e}>{e}</li>)}</ul>}
     </div>;

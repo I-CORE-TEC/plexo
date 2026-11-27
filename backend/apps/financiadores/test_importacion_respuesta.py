@@ -35,7 +35,7 @@ class DatosRespuesta:
             cobertura_habilitada=False)
 
     def confirmar(self, lote, **datos):
-        return self.client.post(self.url, {"importacion": lote.pk, **datos}, format="json")
+        return self.client.post(self.url, {"motivo": "Padrón OSTEL de prueba", "importacion": lote.pk, **datos}, format="json")
 
 
 class RespuestaImportacionTests(DatosRespuesta, TestCase):
@@ -256,7 +256,7 @@ class RespuestaConcurrenteTests(DatosRespuesta, TransactionTestCase):
                 client = APIClient()
                 client.force_authenticate(Usuario.objects.get(pk=self.usuario.pk))
                 barrera.wait(timeout=15)
-                respuesta = client.post(self.url, {"importacion": lote.pk, "modo_respuesta": "cambios",
+                respuesta = client.post(self.url, {"motivo": "Padrón OSTEL de prueba", "importacion": lote.pk, "modo_respuesta": "cambios",
                                                   "huella_lote": base}, format="json")
                 return respuesta.status_code, respuesta.data
             finally:

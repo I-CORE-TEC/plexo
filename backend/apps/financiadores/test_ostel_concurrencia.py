@@ -47,7 +47,7 @@ class OstelConcurrenciaTests(TransactionTestCase):
                 usuario = Usuario.objects.get(pk=self.usuario.pk)
                 barrera.wait(timeout=10)
                 return ostel_importacion.aplicar(
-                    importacion=lote, usuario=usuario,
+                    importacion=lote, usuario=usuario, motivo="Padrón OSTEL de prueba",
                 ).resumen
             finally:
                 close_old_connections()

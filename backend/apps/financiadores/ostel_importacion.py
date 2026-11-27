@@ -260,7 +260,8 @@ def _clasificar(fila, obj, hoy):
     """
     original = fila["original"]
     baja = fila["fuente"] == "bajas" or original.get("ESTADO") == "B" or original.get("FECBAJ") not in (None, "")
-    fila.update(grupo=None, diferencias=[], fecha_baja=None, fecha_ingreso=None, plan_anterior=None)
+    fila.update(grupo=None, diferencias=[], fecha_baja=None, fecha_ingreso=None, plan_anterior=None,
+                ya_registrada=False)
     reingreso = not baja and obj is not None and obj.finalizado_en is not None
     try:
         ingreso = _fecha(original.get("FECING"), "FECING")
@@ -281,7 +282,12 @@ def _clasificar(fila, obj, hoy):
         if obj is None:
             raise _conflicto("Baja de un documento que no está en el padrón.", "FECBAJ")
         if obj.finalizado_en:
-            raise _conflicto("La afiliación ya está finalizada. La baja no se repite.", "FECBAJ")
+            # Decisión 27/11: la misma baja repetida ya está registrada y no pide
+            # revisión; otra fecha es una diferencia real y va a conflictos.
+            if timezone.localtime(obj.finalizado_en).date() != fecha_baja:
+                raise _conflicto("La afiliación ya está finalizada con otra fecha de baja. Revisá FECBAJ.", "FECBAJ")
+            fila.update(grupo="baja", fecha_baja=fecha_baja.isoformat(), ya_registrada=True)
+            return
         if obj.desde and fecha_baja < obj.desde:
             raise _conflicto("FECBAJ es anterior al inicio de la afiliación en el padrón.", "FECBAJ")
         fila.update(grupo="baja", fecha_baja=fecha_baja.isoformat())
@@ -348,8 +354,10 @@ def _validar(fila, lote, repetidos, referencias=None):
         raise ValidationError("La identidad cambió desde la revisión; volvé a revisar la fila.")
     if agrupado:
         _clasificar(fila, obj, timezone.localdate())
-        if fila["grupo"] == "baja":
-            return obj  # Una baja no toca cobertura: la opción del lote rige altas.
+        # Decisión 27/11: la opción del lote sólo rige altas. Quien ya existe
+        # conserva su cobertura sin pedir confirmación; no es un conflicto.
+        fila.pop("conflicto_cobertura", None)
+        return obj
     revisar_cobertura(fila, obj, lote.resumen.get("cobertura_habilitada"))
     return obj
 
@@ -370,8 +378,10 @@ def _revisar(lote):
         if fila["estado"] in ("aplicada", "omitida"):
             continue
         try:
-            _validar(fila, lote, repetidos, referencias)
+            obj = _validar(fila, lote, repetidos, referencias)
             fila.update(estado="valida", errores=[], columnas_error=[])
+            if fila.get("ya_registrada"):
+                fila.update(estado="aplicada", afiliado=obj.pk)  # Nada que aplicar.
         except ValidationError as exc:
             _marcar(fila, exc)
     _guardar(lote)
@@ -530,8 +540,8 @@ def aplicar(*, importacion, usuario, grupos=None, motivo=None, confirmar_bajas=F
 
     Con `grupos` (contrato 4) aplica sólo esos grupos con el `motivo` único del
     lote; las bajas exigen `confirmar_bajas`. Sin `grupos` conserva la
-    confirmación anterior (`confirmar-importacion`): altas y modificaciones con
-    los motivos fijos de siempre, nunca bajas ni reingresos.
+    confirmación anterior (`confirmar-importacion`): altas y modificaciones,
+    nunca bajas ni reingresos; en contrato 4 también exige el motivo del lote.
     """
     requerir_financiador(usuario, importacion.financiador_id, escritura=True)
     agrupado = grupos is not None
@@ -547,6 +557,11 @@ def aplicar(*, importacion, usuario, grupos=None, motivo=None, confirmar_bajas=F
     contrato = lote.resumen.get("contrato") == CONTRATO
     if agrupado and not contrato:
         raise ValidationError("Este lote se preparó antes de los grupos mensuales. Cargá el archivo nuevamente.")
+    if contrato and not agrupado:
+        # Decisión 27/11: la confirmación anterior sigue disponible para el
+        # padrón mensual (conserva su respuesta acotada), pero exige el motivo
+        # del lote: ningún cambio del padrón mensual queda sin motivo.
+        motivo = _motivo_lote(motivo)
     if not agrupado:
         grupos = ("alta", "modificacion")
     Financiador.objects.select_for_update(no_key=True).get(pk=lote.financiador_id)

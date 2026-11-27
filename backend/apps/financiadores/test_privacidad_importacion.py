@@ -67,14 +67,14 @@ class PrivacidadImportacionTests(CodparImportacionFixture, APITestCase):
         lote.refresh_from_db()
         self.assertEqual(lote.filas[0]["original"], originales)
         confirmacion = self.client.post(self.base + "confirmar-importacion/", {
-            "importacion": lote.pk, "modo_respuesta": "cambios",
+            "motivo": "Padrón OSTEL de prueba", "importacion": lote.pk, "modo_respuesta": "cambios",
             "huella_lote": huella_lote(lote),
         }, format="json")
         self.assertEqual(confirmacion.data["modo_respuesta"], "cambios")
         self.assertTrue(confirmacion.data["filas_cambiadas"])
         self.comprobar_respuesta(confirmacion, "filas_cambiadas")
         completa = self.client.post(self.base + "confirmar-importacion/", {
-            "importacion": lote.pk,
+            "motivo": "Padrón OSTEL de prueba", "importacion": lote.pk,
         }, format="json")
         self.comprobar_respuesta(completa)
         antes = list(m.Importacion.objects.order_by("pk").values())

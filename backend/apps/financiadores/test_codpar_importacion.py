@@ -34,7 +34,7 @@ class CodparImportacionFixture:
         }, format="multipart")
         self.assertEqual(preview.status_code, 200)
         aplicada = self.client.post(self.base + "confirmar-importacion/", {
-            "importacion": preview.data["id"],
+            "motivo": "Padrón OSTEL de prueba", "importacion": preview.data["id"],
         }, format="json")
         self.assertEqual(aplicada.status_code, 200)
         self.lote = m.Importacion.objects.get(pk=preview.data["id"])

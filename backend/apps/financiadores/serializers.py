@@ -244,6 +244,8 @@ class ConfirmarImportacionSerializer(serializers.Serializer):
     revisiones_cobertura = serializers.DictField(child=serializers.CharField(max_length=255), required=False)
     modo_respuesta = serializers.ChoiceField(choices=["completa", "cambios"], default="completa")
     huella_lote = serializers.RegexField(regex=r"^[0-9a-f]{64}$", required=False)
+    # Obligatorio para el padrón mensual de OSTEL (contrato 4); queda en el historial.
+    motivo = serializers.CharField(max_length=255, required=False, allow_blank=True, trim_whitespace=True)
 
 
 class ImportacionRespuestaCompletaSerializer(ImportacionSerializer):

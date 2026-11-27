@@ -42,7 +42,7 @@ class Aceptacion182Tests(DatosRespuesta, TransactionTestCase):
                 EventoCobertura.objects.filter(financiador=self.org).count())
 
     def _confirmar(self, actual):
-        respuesta = self.client.post(self.url, {"importacion": actual["id"], "modo_respuesta": "cambios",
+        respuesta = self.client.post(self.url, {"motivo": "Padrón OSTEL de prueba", "importacion": actual["id"], "modo_respuesta": "cambios",
             **({"huella_lote": actual["huella_lote"]} if actual.get("huella_lote") else {})}, format="json")
         self.assertEqual(respuesta.status_code, 200)
         self.assertLessEqual(respuesta.data["resumen"]["valida"], actual["resumen"]["valida"])

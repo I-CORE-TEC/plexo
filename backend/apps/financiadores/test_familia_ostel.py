@@ -38,7 +38,7 @@ class FamiliaOstelFixture:
         self.fuente = {"importacion": self.lote.pk, "fila": len(filas) if raiz_primero else 1}
 
     def aplicar_padron(self):
-        respuesta = self.client.post(self.base + "confirmar-importacion/", {"importacion": self.lote.pk}, format="json")
+        respuesta = self.client.post(self.base + "confirmar-importacion/", {"motivo": "Padrón OSTEL de prueba", "importacion": self.lote.pk}, format="json")
         self.assertEqual(respuesta.status_code, 200, respuesta.data)
         self.lote.refresh_from_db()
         self.assertGreater(self.lote.resumen["aplicada"], 0, [f["errores"] for f in self.lote.filas])
