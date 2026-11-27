@@ -1,0 +1,3 @@
+-r requirements.txt
+# Preserve traceback transport from Django's parallel test workers.
+tblib==3.2.2
