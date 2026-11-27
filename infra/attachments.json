@@ -1,0 +1,56 @@
+{
+  "railway_project_id": "5c9e06ca-364f-423f-9ef1-cd41c815b35b",
+  "environments": {
+    "QA": {
+      "environment_name": "QA",
+      "environment_id": "99fa9ab6-f0d7-4cc7-813e-60fd5a86d3e4",
+      "api_service": "plexo-qa-api",
+      "api_service_id": "8a7b2a31-2cff-4134-859c-fef6e4aeb222",
+      "bucket": "plexo-qa-adjuntos",
+      "bucket_region": "ams"
+    }
+  },
+  "variables": {
+    "BUCKET": {
+      "required_for_s3": true,
+      "description": "S3 bucket name, not the provider's display label",
+      "example": "plexo-local-adjuntos",
+      "railway_reference": "BUCKET"
+    },
+    "ACCESS_KEY_ID": {
+      "required_for_s3": true,
+      "description": "Bucket-scoped S3 access key ID",
+      "example": "<from-secret-store>",
+      "railway_reference": "ACCESS_KEY_ID"
+    },
+    "SECRET_ACCESS_KEY": {
+      "required_for_s3": true,
+      "description": "Secret paired with the S3 access key ID",
+      "example": "<from-secret-store>",
+      "railway_reference": "SECRET_ACCESS_KEY"
+    },
+    "ENDPOINT": {
+      "required_for_s3": true,
+      "description": "S3 API endpoint, not a bucket URL",
+      "example": "https://s3.example.invalid",
+      "railway_reference": "ENDPOINT"
+    },
+    "REGION": {
+      "required_for_s3": false,
+      "description": "S3 signing region; use the provider's value, default auto",
+      "example": "us-east-1",
+      "railway_reference": "REGION"
+    },
+    "BUCKET_ADDRESSING_STYLE": {
+      "required_for_s3": false,
+      "description": "virtual (default) or path, as required by the provider",
+      "example": "path"
+    },
+    "SALUD_FACTURAS_ADJUNTOS": {
+      "required_for_s3": false,
+      "description": "Feature flag for invoice attachments, regardless of storage backend",
+      "example": "true",
+      "railway_value": "true"
+    }
+  }
+}

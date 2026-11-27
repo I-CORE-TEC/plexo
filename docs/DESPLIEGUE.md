@@ -327,16 +327,9 @@ cada redespliegue. Para eso el backend puede guardar los adjuntos clínicos y lo
 de facturas en un **bucket S3 compatible y privado** (#171). Se activa solo con
 variables; sin ellas todo sigue en disco.
 
-| Variable | Qué es |
-|---|---|
-| `BUCKET` | Nombre del bucket para la API S3 (en Railway, `BUCKET`, no `RAILWAY_BUCKET_NAME`). |
-| `ACCESS_KEY_ID`, `SECRET_ACCESS_KEY` | Credenciales. Solo en las variables del servicio, nunca en el repositorio. |
-| `ENDPOINT` | Endpoint S3, por ejemplo `https://t3.storageapi.dev` en Railway. |
-| `REGION` | Opcional, `auto` por defecto (Railway). |
-| `BUCKET_ADDRESSING_STYLE` | Opcional: `virtual` (por defecto) o `path` (buckets viejos de Railway, MinIO). |
-
-Las cuatro primeras van juntas: con algunas sí y otras no, el backend **no
-arranca**, para no caer a disco en silencio.
+El [manifiesto de adjuntos](../infra/attachments.json) lista las variables
+obligatorias y opcionales. Las obligatorias van juntas: con algunas sí y
+otras no, el backend **no arranca**, para no caer a disco en silencio.
 
 Cómo queda guardado:
 
@@ -352,22 +345,9 @@ Cómo queda guardado:
   descarga ocupa un worker de gunicorn mientras dura (los archivos tienen un
   máximo de 10 MB).
 
-**Crear el bucket en Railway** (dueño del proyecto, desde el dashboard):
-
-1. Antes, mirar en el dashboard cuánto del crédito del plan consumen hoy la base
-   y los servicios. Si pasa de ~80 %, conviene pasar a Hobby antes de sumar el
-   bucket (decisión P2 del #171).
-2. Crear un Storage Bucket en el proyecto, según la documentación de Railway.
-   Railway no ofrece buckets públicos: queda privado.
-3. En el servicio del backend, agregar variables que referencien las del bucket,
-   por ejemplo `BUCKET=${{<nombre del bucket>.BUCKET}}` y lo mismo para
-   `ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `ENDPOINT` y `REGION`. Si la pestaña
-   *Credentials* del bucket indica *path-style*, agregar
-   `BUCKET_ADDRESSING_STYLE=path`.
-4. En la demo, `SALUD_FACTURAS_ADJUNTOS=true` para habilitar los adjuntos de
-   facturas.
-5. Redesplegar. Comprobar subiendo un adjunto clínico y uno de factura,
-   redesplegando otra vez y descargándolos: tienen que dar el mismo sha256.
+**Crear o replicar el bucket:** usa la [guía operativa de adjuntos S3](entornos/adjuntos-s3.md).
+Incluye la configuración versionada de Railway QA, un ejemplo local compatible,
+verificación sin cambios de datos y rotación de claves.
 
 Los archivos que ya estaban en el disco del contenedor **no se copian solos** al
 bucket: si hay que conservarlos, se suben con la misma clave (`uploads/…`) antes
