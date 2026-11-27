@@ -4,9 +4,8 @@ Solo se tocan los prefijos que escribe la app: `uploads/` del almacenamiento
 `default` (adjuntos clínicos, estudios, evidencia de consentimientos) y todo
 el almacenamiento `facturas` (que en el bucket ya vive bajo `facturas/`).
 
-Fuera de `ENTORNO=demo`, o con los archivos en disco local, no hay nada que
-vaciar: en desarrollo los archivos son del desarrollador, y en producción son
-datos de pacientes.
+El borrado requiere `SEED_DEMO=True` y almacenamiento en bucket; nunca opera
+en `ENTORNO=produccion` ni borra archivos del disco local.
 """
 import logging
 from posixpath import join
@@ -31,7 +30,7 @@ def _recorrer(almacenamiento, carpeta):
 
 
 def corresponde_vaciar():
-    return settings.ENTORNO == "demo" and settings.ALMACENAMIENTO_EN_BUCKET
+    return settings.ENTORNO != "produccion" and settings.SEED_DEMO and settings.ALMACENAMIENTO_EN_BUCKET
 
 
 def claves_a_vaciar():
@@ -47,6 +46,8 @@ def borrar(claves):
     Un fallo no frena el resto: lo que queda es un objeto huérfano, que ninguna
     fila de la base referencia y se lleva la próxima recarga.
     """
+    if not corresponde_vaciar():
+        return []
     fallidas = []
     for alias, clave in claves:
         try:

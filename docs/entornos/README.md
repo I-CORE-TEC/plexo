@@ -77,7 +77,7 @@ transacción: si un paso falla, la base queda como estaba.
 
 ```bash
 $DEMO up -d --build       # la imagen trae el código horneado: sin --build corre el de la última construcción
-$DEMO exec backend python manage.py seed_entorno_demo --noinput
+$DEMO exec -e SEED_DEMO=True backend python manage.py seed_entorno_demo --noinput
 ```
 
 Tarda **entre 5 y 7 minutos** (medido en Docker local), y mientras corre la aplicación no responde:
@@ -107,7 +107,7 @@ las 8, aunque se corra días antes: a las 9 hay pacientes esperando desde hace u
 rato, octubre tiene movimiento y las autorizaciones abiertas vencen el 03/10.
 
 ```bash
-$DEMO exec backend python manage.py seed_entorno_demo --noinput --ancla 2026-10-01T08:00
+$DEMO exec -e SEED_DEMO=True backend python manage.py seed_entorno_demo --noinput --ancla 2026-10-01T08:00
 ```
 
 Dos consecuencias hasta que llega el ancla. La aplicación muestra datos con
@@ -163,7 +163,7 @@ hace falta, no un procedimiento probado.
 1. **Respaldo o confirmación de que la base es descartable** (criterio 6 del
    #65). El comando vacía la base entera.
 2. En el servicio del backend, variables `ENTORNO=demo`, `DEMO_PASSWORD` (se
-   guarda fuera del repositorio), `SEED_DEMO=0` y `SEED_GUARDIA=0`. Cambiar
+   guarda fuera del repositorio), `SEED_DEMO=True` y `SEED_GUARDIA=0`. Cambiar
    variables **redespliega el servicio**: esperá a que quede sano antes del paso 3.
 3. Desde una consola **del contenedor** del backend (`railway ssh` o la consola
    web): `python manage.py seed_entorno_demo --noinput --ancla 2026-10-01T08:00`.

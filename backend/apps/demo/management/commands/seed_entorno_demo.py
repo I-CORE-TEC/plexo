@@ -22,13 +22,13 @@ Todo corre en UNA transacción, vaciado incluido: si un paso falla, la base
 queda como estaba y no a medio cargar. Mientras corre, la aplicación espera:
 el vaciado bloquea todas las tablas hasta el final (entre 5 y 7 minutos).
 
-Con `ENTORNO=demo` y los archivos en el bucket (#171), también se borran los
+Con `SEED_DEMO=True` y los archivos en el bucket (#171), también se borran los
 archivos de la app que había antes de la carga (`apps.demo.archivos`). Se
 listan antes de cargar y se borran recién después de que la carga confirmó:
 si un paso falla, la base vuelve atrás y sus archivos siguen ahí; y los que
 crea la carga nueva no están en la lista. En disco local no se borra nada.
 
-Requiere PostgreSQL y `ENTORNO` distinto de `produccion`. Las fechas son
+Requiere `SEED_DEMO=True`, PostgreSQL y `ENTORNO` distinto de `produccion`. Las fechas son
 relativas al momento de la carga (ver `apps.demo.calendario`), y lo pendiente
 —casos abiertos, autorizaciones con 48 h de plazo, pacientes en la sala de
 espera— es de las últimas horas antes de ese momento.
@@ -45,11 +45,12 @@ misma ancla.
     python manage.py seed_entorno_demo --noinput --ancla 2026-10-01T08:00
 """
 import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from datetime import datetime, timedelta
 from io import StringIO
 from unittest.mock import patch
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
@@ -58,6 +59,7 @@ from django.utils import timezone
 from apps.demo import archivos
 from apps.demo.claves import CLAVE_POR_DEFECTO, usa_clave_por_defecto
 from apps.demo.entorno import exigir_entorno_de_prueba
+from apps.demo.escenas_qa import cargar_escenas_qa
 from apps.demo.trabajo import INFORMATIVOS, trabajo_por_usuario
 
 
@@ -79,7 +81,7 @@ def pasos(dias, casos):
 
 
 class Command(BaseCommand):
-    help = "Vacía la base y carga el entorno de demostración completo."
+    help = "Vacía la base y carga la demo completa. Requiere SEED_DEMO=True y no admite producción."
 
     def add_arguments(self, parser):
         parser.add_argument("--noinput", "--no-input", action="store_false", dest="interactive",
@@ -93,6 +95,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opciones):
         exigir_entorno_de_prueba("seed_entorno_demo")
+        if not settings.SEED_DEMO:
+            raise CommandError("seed_entorno_demo requiere SEED_DEMO=True. No se modificó ningún dato.")
         if connection.vendor != "postgresql":
             raise CommandError("La carga requiere PostgreSQL.")
         base = connection.settings_dict.get("NAME")
@@ -107,7 +111,9 @@ class Command(BaseCommand):
         anteriores = archivos.claves_a_vaciar()
         inicio = time.monotonic()
         with self._reloj_en(ancla):
-            self._cargar(base, opciones)
+            with ExitStack() as al_revertir:
+                self._cargar(base, opciones, al_revertir)
+                al_revertir.pop_all()
             self.stdout.write(self.style.SUCCESS(f"\nEntorno de demo cargado en {time.monotonic() - inicio:.0f} s.\n"))
             self._vaciar_archivos(anteriores)
             self._resumen()
@@ -146,7 +152,7 @@ class Command(BaseCommand):
                    side_effect=lambda: base + timedelta(seconds=time.monotonic() - inicio)):
             yield
 
-    def _cargar(self, base, opciones):
+    def _cargar(self, base, opciones, al_revertir):
         with transaction.atomic():
             self.stdout.write(f"Vaciando «{base}»…")
             call_command("flush", interactive=False, verbosity=0)
@@ -168,6 +174,10 @@ class Command(BaseCommand):
                 for linea in lineas:
                     if "trabajo para" in linea:
                         self.stdout.write(self.style.WARNING(f"    {linea.strip()}"))
+            try:
+                cargar_escenas_qa(al_revertir)
+            except Exception as error:
+                raise CommandError(f"Las escenas de QA fallaron y se revirtió toda la carga: {error}") from error
 
     def _vaciar_archivos(self, anteriores):
         if not anteriores:

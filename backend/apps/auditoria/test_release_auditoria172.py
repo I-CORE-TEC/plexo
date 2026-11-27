@@ -20,7 +20,7 @@ from .management.commands.migrar_con_candado import CANDADO_MIGRACIONES
 
 COMPLETA = {
     "ENTORNO": "produccion", "DJANGO_DEBUG": "false", "DJANGO_SECRET_KEY": "x" * 64,
-    "DATABASE_URL": "postgres://u:p@localhost:5432/x", "SEED_DEMO": "0", "SEED_GUARDIA": "0",
+    "DATABASE_URL": "postgres://u:p@localhost:5432/x", "SEED_DEMO": "0", "SEED_DEMO_OSTEL": "0", "SEED_GUARDIA": "0",
     "RENAPER_MODO": "real",
 }
 
@@ -43,6 +43,7 @@ class ProduccionIncompletaAuditoria172Tests(SimpleTestCase):
             "DJANGO_DEBUG": {"DJANGO_DEBUG": None},
             "DATABASE_URL": {"DATABASE_URL": None},
             "SEED_DEMO=0": {"SEED_DEMO": "1"},
+            "SEED_DEMO_OSTEL=0": {"SEED_DEMO_OSTEL": "True"},
             "SEED_GUARDIA=0": {"SEED_GUARDIA": "1"},
         }
         for falta, cambio in casos.items():
