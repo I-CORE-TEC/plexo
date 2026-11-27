@@ -1,0 +1,8 @@
+{
+  "name": "plexo-railway-iac",
+  "private": true,
+  "description": "Railway Infrastructure as Code (railway config plan/apply).",
+  "dependencies": {
+    "railway": "3.19.1"
+  }
+}
