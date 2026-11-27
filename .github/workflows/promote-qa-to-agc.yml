@@ -1,0 +1,32 @@
+name: Open AGC promotion PR
+
+on:
+  pull_request_target:
+    branches: [qa]
+    types: [closed]
+
+permissions: {}
+
+concurrency:
+  group: qa-to-agc-promotion
+  cancel-in-progress: false
+
+jobs:
+  open-promotion:
+    if: github.repository == 'I-CORE-TEC/plexo' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: refs/heads/qa
+          persist-credentials: false
+      - name: Verify promotion behavior
+        run: node --test .github/scripts/promote-qa-to-agc.test.mjs
+      - name: Open or reuse QA-to-AGC pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/promote-qa-to-agc.mjs

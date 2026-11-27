@@ -29,3 +29,13 @@ El origen del PR se revisa explícitamente: esos checks se asocian al commit
 y no garantizan por sí solos que la rama de origen sea `qa`.
 `Wait for CI` no está activo en Railway; los checks de QA se exigen al
 promover a AGC, no como requisito del trigger de Railway.
+## Apertura automática del PR
+
+Al fusionar un PR hacia `qa`, GitHub Actions abre o reutiliza el PR desde
+`qa` hacia `agc`. No lo aprueba ni lo fusiona. Si la rama `qa` no tiene
+commits nuevos para promover, no abre un PR.
+
+El repositorio debe permitir que GitHub Actions cree PRs. GitHub puede pedir
+a una persona con permiso de escritura que habilite el CI del PR creado por
+el token de Actions. Los checks de despliegue de QA y el bloqueo de push
+directo en `agc` no cambian.
