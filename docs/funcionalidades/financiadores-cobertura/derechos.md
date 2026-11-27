@@ -69,6 +69,13 @@ trazabilidad de versiones y sus endpoints `borradores-derechos*`, junto con la
 sección "borradores" del portal. Ningún flujo de cobertura los usaba y no
 otorgaban ni quitaban derechos.
 
-La tabla `BorradorReglaDerechos` se conserva hasta comprobar que no tiene datos
-relevantes en ningún entorno. La historia de ese desarrollo está en el
+La tabla `BorradorReglaDerechos` se eliminó con la migración
+`financiadores.0022_retirar_borradorregladerechos`. Antes de borrarla, la
+migración archiva cada fila que quede como un evento de auditoría
+`EventoCobertura` con acción `retirar_borrador_derechos`, objeto
+`BorradorReglaDerechos:<id>`, el mismo financiador y autor, y un resumen
+(código, versión, régimen, plan, vigencia, plazo y motivo original, hasta 255
+caracteres). Con la tabla vacía no escribe nada. El borrado de datos es de una
+sola vía: revertir la migración recrea la tabla vacía y los eventos quedan como
+rastro. La historia de ese desarrollo está en el
 historial de git de `ostel-aceptacion.md`.
