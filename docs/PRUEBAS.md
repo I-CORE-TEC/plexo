@@ -111,6 +111,28 @@ docker compose exec db psql -U salud -d postgres -c "drop database if exists tes
 
 Para diagnosticar, `-v 2` muestra el nombre de cada prueba a medida que corre.
 
+## Suite de backend en GitHub Actions
+
+La suite completa conserva el descubrimiento de Django y usa cuatro procesos en
+el mismo runner estándar. Django crea la base de prueba en PostgreSQL 16 y la
+clona para cada proceso. Los pasos de migraciones, estáticos, padrón (#184) y
+geografía (#136) conservan sus comandos y su orden. No cambia la configuración
+del backend desplegado.
+
+Para reproducir la suite en Linux o Docker, con PostgreSQL aislado y las variables
+de CI, ejecuta desde `backend/`:
+
+```bash
+pip install -r requirements-ci.txt
+python manage.py collectstatic --noinput
+python manage.py test --noinput --parallel 4 --verbosity 2 --timing
+```
+
+Revisa `Found`, `Ran`, los resultados individuales y los tiempos en el log de
+Actions. Si un fallo no muestra un traceback útil o sospechas que depende del
+orden, reproduce la prueba con `--parallel 1`. No uses una base compartida entre
+dos corridas independientes.
+
 ## Qué hay
 
 | Suite | Qué cubre |
