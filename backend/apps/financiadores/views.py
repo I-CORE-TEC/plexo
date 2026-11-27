@@ -414,8 +414,12 @@ class FinanciadorViewSet(NovedadesMixin, PadronMixin, CoberturaBaseViewSet):
     def _derecho_ficha(afiliado):
         """`derecho` follows the padrón rule; `estado` keeps its older vocabulary."""
         derecho = vigencias.derecho_padron(afiliado)
-        estado = {"finalizadas": "finalizada", "futuras": "futura",
-                  "financiador_inactivo": "financiador_inactivo"}.get(derecho, "vigente")
+        # `estado` keeps its date-only meaning; only an inactive financier adds a value.
+        if derecho == "financiador_inactivo":
+            estado = derecho
+        else:
+            estado = ("finalizada" if afiliado.finalizado_en else
+                      "futura" if afiliado.desde > timezone.localdate() else "vigente")
         return {"derecho": derecho, "estado": estado}
 
     def _afiliado_ficha(self, request, org):

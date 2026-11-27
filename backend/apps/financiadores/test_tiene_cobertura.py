@@ -315,6 +315,15 @@ class PadronDerechoTests(ManualSetup, APITestCase):
         self.assertEqual(ficha.status_code, 200, ficha.data)
         self.assertEqual(ficha.data["afiliado"]["derecho"], "financiador_inactivo")
 
+    def test_ficha_conserva_estado_por_fechas_para_un_registro_administrativo_futuro(self):
+        futuro = m.Afiliado.objects.create(financiador=self.financiador, numero="90006", documento="90006",
+                                           nombre="Administrativo futuro", desde=self.hoy + timedelta(days=5),
+                                           cobertura_habilitada=False)
+        ficha = self.client.get(f"/api/financiadores/{self.financiador.pk}/ficha-afiliado/", {"afiliado": futuro.pk})
+        self.assertEqual(ficha.status_code, 200, ficha.data)
+        self.assertEqual(ficha.data["afiliado"]["derecho"], "administrativas")
+        self.assertEqual(ficha.data["afiliado"]["estado"], "futura")
+
     def test_anotacion_y_valor_por_fila_coinciden(self):
         from .padron_consulta import _anotar
         from .vigencias import derecho_padron
