@@ -26,23 +26,40 @@ main ──PR──▶ qa ──PR──▶ agc        (más adelante: prd)
 3. Cuando el analista valida QA, se abre un PR `qa → agc`. La rama `agc` está
    protegida por un ruleset que solo acepta cambios por PR.
 
-## Configuración versionada (config as code)
+## Configuración versionada (Infrastructure as Code)
 
-Cada servicio lee su configuración de build y deploy desde el repo:
+La configuración de build y deploy de la API y la web vive en
+[`.railway/app.ts`](../../.railway/app.ts), un *partial* de IaC llamado `app`.
+El cron de Georef tiene su propio partial (`geografia`) en `.railway/railway.ts`.
+Cada partial solo puede tocar los servicios que declara.
 
-| Servicio | Root directory | Config file |
+| Servicio | Root directory | Dockerfile |
 |---|---|---|
-| `plexo-qa-api` | `/backend` | `/backend/railway.json` |
-| `plexo-qa-web` | `/frontend` | `/frontend/railway.json` |
+| `plexo-qa-api` | `/backend` | `Dockerfile` (relativo) |
+| `plexo-qa-web` | `/frontend` | `Dockerfile` (relativo) |
 
-- El **config file** se indica con ruta absoluta desde la raíz del repo: Railway
-  no lo busca dentro del root directory.
-- El `dockerfilePath` va **relativo** (`Dockerfile`), y se resuelve dentro del
-  root directory. Con `/Dockerfile` (absoluto) Railway lo buscaba en la raíz del
-  repo, donde no hay Dockerfile: todos los builds desde GitHub fallaban con
+- El `dockerfilePath` va **relativo**: se resuelve dentro del root directory.
+  Con `/Dockerfile` (absoluto) Railway lo buscaba en la raíz del repo, donde no
+  hay Dockerfile, y todos los builds desde GitHub fallaban con
   `failed to read Dockerfile at 'Dockerfile'` (diagnosticado el 27/11/2026).
-- Las variables (claves, dominios, `VITE_API_URL`, `NGINX_CONF`, base de datos)
-  **no** van en el archivo: siguen en las variables del servicio en Railway.
+- Los `railway.json` por servicio (Config as Code) **no** se usan: Railway los
+  deprecó, no deja vincularlos y deja de leerlos el 01/12/2026.
+- Las variables figuran **solo por nombre** con `preserve()`; los valores
+  (claves, dominios, credenciales del bucket) siguen en Railway. Una variable
+  que no está en la lista aparece en el plan como **borrado**: antes de aplicar,
+  agregá su nombre al archivo.
+
+Para cambiar algo:
+
+```bash
+cd .railway && npm ci && cd ..
+railway link --project 5c9e06ca-364f-423f-9ef1-cd41c815b35b --environment QA
+railway config plan --file .railway/app.ts    # revisar: no debe borrar nada inesperado
+railway config apply --file .railway/app.ts   # redeploya los servicios cambiados
+```
+
+En Windows con Git Bash, si `plan` dice que la CLI es vieja, usar el binario real
+como se explica en [Georef en Railway](geografia-railway.md).
 
 ### Migraciones
 
