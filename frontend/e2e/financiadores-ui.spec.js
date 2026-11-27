@@ -1608,6 +1608,21 @@ test("historial vacío permanece entre formatos sin paginación", async ({ page 
   }
 });
 
+test("historial distingue la mañana de la tarde en formato de 24 horas (#231)", async ({ page }) => {
+  await escenario(page);
+  const lote = { tipo: "padron", estado: "aplicada", resumen: {}, filas: [] };
+  await page.route("**/api/financiadores/21/importaciones/**", (route) => route.fulfill({ json: lista([
+    { ...lote, id: 16, creado: "2026-11-25T18:02:32Z" },
+    { ...lote, id: 15, creado: "2026-11-25T06:02:32Z" },
+  ]) }));
+  await page.goto("/financiadores/padron?financiador=21");
+  await page.getByRole("button", { name: "Importar Excel", exact: true }).click();
+  await page.getByRole("button", { name: "Importaciones registradas", exact: true }).press("Enter");
+  const historial = page.getByRole("region", { name: "Importaciones registradas" });
+  await expect(historial.getByRole("button", { name: /Importación 16/ })).toContainText("15:02:32");
+  await expect(historial.getByRole("button", { name: /Importación 15/ })).toContainText("03:02:32");
+});
+
 test("historial permite retomar lote desde OSTEL sin cambiar preferencia guardada", async ({ page }) => {
   await escenario(page);
   const lote = { id: 99, tipo: "padron", estado: "preview", resumen: { total: 1, valida: 1, aplicada: 0, rechazada: 0 }, filas: [] };
