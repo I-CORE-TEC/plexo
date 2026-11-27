@@ -9,7 +9,7 @@ from apps.accounts.models import Membresia
 from apps.common import tiene_capacidad
 from apps.financiadores.permisos import requerir_financiador
 from .contrato import NIVELES
-from .models import Catalogo, Lugar
+from .models import Catalogo, Ejecucion, Lugar
 from .servicios import ambito, visibles
 
 
@@ -27,10 +27,18 @@ class LugaresRespuestaSerializer(serializers.Serializer):
     results = LugarLecturaSerializer(many=True)
 
 
+class EjecucionSerializer(serializers.Serializer):
+    momento = serializers.DateTimeField()
+    resultado = serializers.ChoiceField(choices=["publicado", "omitido", "superado", "fallo"])
+    entidades = serializers.IntegerField(allow_null=True)
+
+
 class EstadoCatalogoSerializer(serializers.Serializer):
     version = serializers.IntegerField()
+    intento = serializers.DateTimeField(allow_null=True)
     actualizado = serializers.DateTimeField(allow_null=True)
     error = serializers.CharField(allow_blank=True)
+    ejecuciones = EjecucionSerializer(many=True)
 
 
 def autorizar_ambito(usuario, params):
@@ -93,5 +101,8 @@ class EstadoCatalogoView(APIView):
     @extend_schema(responses=EstadoCatalogoSerializer)
     def get(self, request):
         c = Catalogo.objects.filter(pk=1).first()
-        return Response({"version": c.version if c else 0, "actualizado": c.actualizado if c else None,
-                         "error": c.error if c else "Catálogo sin cargar; podés ingresar lugares manualmente."})
+        ejecuciones = list(Ejecucion.objects.values("momento", "resultado", "entidades")[:Ejecucion.CONSERVAR])
+        return Response({"version": c.version if c else 0, "intento": c.intento if c else None,
+                         "actualizado": c.actualizado if c else None,
+                         "error": c.error if c else "Catálogo sin cargar; podés ingresar lugares manualmente.",
+                         "ejecuciones": ejecuciones})

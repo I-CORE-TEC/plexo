@@ -11,6 +11,23 @@ class Catalogo(models.Model):
     huella = models.CharField(max_length=64, blank=True)
 
 
+class Ejecucion(models.Model):
+    """Short history of scheduled runs: evidence of the last run without platform logs."""
+    CONSERVAR = 20
+    momento = models.DateTimeField(auto_now_add=True)
+    resultado = models.CharField(max_length=10, choices=[(v, v) for v in ("publicado", "omitido", "superado", "fallo")])
+    entidades = models.PositiveIntegerField(null=True)
+
+    class Meta:
+        ordering = ["-momento", "-pk"]
+
+    @classmethod
+    def registrar(cls, resultado, entidades=None):
+        cls.objects.create(resultado=resultado, entidades=entidades)
+        viejas = cls.objects.order_by("-momento", "-pk").values_list("pk", flat=True)[cls.CONSERVAR:]
+        cls.objects.filter(pk__in=list(viejas)).delete()
+
+
 class Lugar(models.Model):
     tipo = models.CharField(max_length=10, choices=[(v, v) for v in ("provincia", "partido", "localidad")])
     origen = models.CharField(max_length=10, choices=[("georef", "Georef"), ("manual", "Manual · sin verificar")])

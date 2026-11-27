@@ -77,6 +77,9 @@ ENTORNO = env("ENTORNO", "desarrollo").strip().lower()
 if ENTORNO not in ENTORNOS:
     raise RuntimeError(f"ENTORNO={ENTORNO!r} no es válido: usá {', '.join(ENTORNOS)}.")
 
+SEED_DEMO = env_bool("SEED_DEMO")
+SEED_DEMO_OSTEL = env_bool("SEED_DEMO_OSTEL")
+
 # --- Endurecimiento para producción ---------------------------------------- #
 #
 # Sólo se aplica con DEBUG apagado: en desarrollo se corre sobre http, y forzar
@@ -578,8 +581,9 @@ if ENTORNO == "produccion":
         _incompleta.append("DJANGO_DEBUG=false (prendido muestra trazas y configuración)")
     if DATABASES["default"]["ENGINE"] != "django.db.backends.postgresql":
         _incompleta.append("DATABASE_URL de PostgreSQL (sin ella cae a SQLite local)")
-    for _semilla in ("SEED_DEMO", "SEED_GUARDIA"):
-        if env_bool(_semilla, False):
-            _incompleta.append(f"{_semilla}=0 (siembra datos ficticios en la base real)")
+    for _semilla, _habilitada in (("SEED_DEMO", SEED_DEMO), ("SEED_DEMO_OSTEL", SEED_DEMO_OSTEL),
+                                  ("SEED_GUARDIA", env_bool("SEED_GUARDIA"))):
+        if _habilitada:
+            _incompleta.append(f"{_semilla}=0 (los datos ficticios no se habilitan en producción)")
     if _incompleta:
         raise RuntimeError("ENTORNO=produccion con configuración incompleta. Falta: " + "; ".join(_incompleta))

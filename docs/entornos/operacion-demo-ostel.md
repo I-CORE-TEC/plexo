@@ -10,7 +10,7 @@ dirigido a OSTEL; el estado técnico se conserva únicamente en este documento.
 
 Comando nuevo: `python manage.py seed_ostel_demo`.
 
-Requiere `ENTORNO=demo` y PostgreSQL migrado. Las cuentas usan la misma clave que
+Requiere `SEED_DEMO_OSTEL=True`, un `ENTORNO` distinto de `produccion` y PostgreSQL migrado. Las cuentas usan la misma clave que
 el resto de la demo: `DEMO_PASSWORD`, o `demo1234` si no está definida. La primera
 carga agrega datos; una repetición devuelve el inventario actual y no cambia
 contraseñas ni repara lo operado. No tiene opción de borrado.
@@ -28,12 +28,9 @@ no es superusuario ni recibe membresías globales de plataforma.
 
 ## Railway: ejecutar sólo después de revisar y autorizar la publicación
 
-Destino indicado por el usuario: https://cauce-web-production.up.railway.app/.
-La CLI autenticada lista el proyecto `faithful-commitment`, con servicios
-`cauce-web`, `cauce-api`, `cauce-reloj`, `cauce-respaldos` y `Postgres`.
-El nombre del entorno de Railway es `production`; eso no demuestra el valor de
-`ENTORNO` de Django. No cambiarlo para evitar una guarda de carga sin confirmar
-previamente que el servicio es exclusivamente la demo indicada.
+Para el procedimiento vigente y el destino `plexo-qa-api`, ver
+[Resembrar PLEXO QA](resembrar-demo-railway.md). No cambiar `ENTORNO` para evitar
+una guarda de carga.
 
 1. Confirmar proyecto, entorno, servicio backend y dominio publicado. Comparar
    la revisión desplegada con la revisión que contiene el comando y sus pruebas.

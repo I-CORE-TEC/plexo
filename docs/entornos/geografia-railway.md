@@ -1,171 +1,247 @@
-# Catálogo geográfico: tarea programada en Railway
+# Catálogo geográfico: tarea programada (Railway y otras infraestructuras)
 
-## Decisión y alcance
+## Qué hace
 
-El 27/10/2026 el usuario eligió una tarea programada para #136, en lugar de un
-worker permanente. `cauce-geografia` usa el mismo código y Dockerfile del backend
-de `main`, pero arranca, comprueba si corresponde actualizar y **termina**. No
-comparte el bucle clínico de `cauce-reloj` ni ejecuta `--periodico`.
+Una tarea programada mantiene el catálogo territorial propio (provincias,
+partidos y localidades) sincronizado con la API pública de Georef. Arranca,
+decide si corresponde actualizar, registra la corrida y **termina**. No es un
+worker permanente.
 
-Entorno: proyecto `faithful-commitment`, ID
-`5c9e06ca-364f-423f-9ef1-cd41c815b35b`, entorno Railway `production`
-(`c0acf9b3-a608-441c-876c-cbcd5fed4860`). Es la demo compartida;
-el nombre del entorno Railway no cambia `ENTORNO=demo` de Django.
+El comando es uno solo y no depende del proveedor:
 
-La tarea sólo descarga el catálogo territorial público de Georef. No envía
-domicilios, personas, instituciones, financiadores ni lugares manuales. Las
-búsquedas de la UI siguen consultando el catálogo propio persistido en PostgreSQL.
-No homologa datos antiguos ni altera coordenadas institucionales.
+```text
+python manage.py sincronizar_geografia --si-corresponde
+```
 
-## Configuración efectiva
+Sólo descarga el catálogo público de Georef. No envía domicilios, personas,
+instituciones, financiadores ni lugares manuales. Las búsquedas de la UI leen
+el catálogo guardado en PostgreSQL, nunca Georef en línea.
+
+## Cuándo actualiza
+
+`--si-corresponde` reutiliza `corresponde()` de
+`backend/apps/geografia/sincronizacion.py`:
+
+| Estado del catálogo | Qué hace la corrida | Resultado registrado |
+|---|---|---|
+| Vacío | Carga inicial | `publicado` |
+| Actualizado hace menos de 7 días | Termina sin llamar a Georef | `omitido` |
+| Vencido, sin intento en las últimas 24 h | Actualiza | `publicado` |
+| Vencido, con un intento hace menos de 24 h | Termina sin llamar a Georef | `omitido` |
+| La descarga falla | Sale con **código distinto de 0** y conserva el catálogo anterior | `fallo` |
+
+Líneas del log:
+
+- `Geografía cron: corresponde actualizar.` y luego
+  `Geografía: N entidades; publicado=True.`
+- `Geografía cron: catálogo vigente o reintento pendiente; no se descarga.`
+- `Falló la sincronización; se conserva el catálogo anterior. Se reintentará en el próximo turno.`
+
+Por eso el cron se programa **a diario**: actualiza una vez por semana y, ante una
+falla, reintenta como máximo una vez por día. Los intervalos son duraciones
+exactas: una actualización puede ocurrir entre 7 y unos 8 días después de la
+anterior. La publicación es transaccional: nunca queda una descarga parcial.
+
+`--si-corresponde` no se combina con `--seco` ni con `--periodico`.
+`--periodico` es el bucle del worker `geografia` de Compose (comprueba cada
+hora y no termina). Nunca usarlo en un cron.
+
+## Evidencia de la última corrida
+
+Cada corrida con `--si-corresponde` guarda una fila en `geografia.Ejecucion`
+(momento, resultado y entidades). Se conservan las últimas 20. La evidencia no
+depende de los logs de la plataforma.
+
+`GET /api/geografia/estado/` requiere sesión (un 401 anónimo es esperado) y
+devuelve, por ejemplo:
+
+```json
+{
+  "version": 1,
+  "intento": "2026-11-27T18:00:04Z",
+  "actualizado": "2026-11-27T18:00:41Z",
+  "error": "",
+  "ejecuciones": [
+    {"momento": "2026-11-28T06:00:03Z", "resultado": "omitido", "entidades": null},
+    {"momento": "2026-11-27T18:00:41Z", "resultado": "publicado", "entidades": 5400}
+  ]
+}
+```
+
+- `version` positiva y `error` vacío: hay un catálogo válido publicado.
+- `actualizado`: última publicación. `intento`: último intento de descarga.
+- `ejecuciones`: corridas del cron, la más reciente primero. Si la primera tiene
+  más de 24 horas, el cron no está corriendo.
+
+`/api/health/` no comprueba el catálogo.
+
+## Railway: cómo está versionado
+
+Railway ya no acepta *Config as Code* (`railway.json` / `railway.toml`) en
+servicios nuevos y deja de leerlo el 01/01/2027. El servicio se define con
+**Infrastructure as Code** en [`.railway/railway.ts`](../../.railway/railway.ts).
+
+- El archivo exporta el *partial* `geografia`. Sólo administra el servicio
+  `<prefijo>-geografia` del entorno enlazado. No declara la API, la web, la base
+  ni el bucket: un `apply` no puede cambiarlos ni borrarlos.
+- El nombre del entorno de Railway elige prefijo y rama: `QA` →
+  `plexo-qa-geografia`, rama `qa`; `AGC` → `plexo-agc-geografia`, rama `agc`.
+  Otro entorno hace fallar la evaluación; agregarlo al mapa `ENTORNOS`.
+- Build: `backend/Dockerfile`, root directory `/backend`.
+- Start command: `/entrypoint.sh python manage.py sincronizar_geografia --si-corresponde`.
+- Cron `0 6 * * *` UTC (03:00 de Argentina). Restart policy `NEVER`. Una réplica.
+  Sin dominio, healthcheck ni volumen.
+- Variables: `DATABASE_URL`, `DATABASE_SSL`, `DJANGO_SECRET_KEY` y `ENTORNO` son
+  referencias a `<prefijo>-api`; no se copian secretos. Valores fijos:
+  `DJANGO_DEBUG=0`, `DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1`,
+  `EJECUTAR_MIGRACIONES=0`, `SEED_DEMO=0`, `SEED_GUARDIA=0`, `PYTHONUNBUFFERED=1`.
+- La API aplica las migraciones. El cron necesita la API desplegada con el mismo
+  código (migración `geografia.0002_ejecucion`).
+- `CronGeografiaTest` (`backend/apps/geografia/issue136_test_runtime.py`)
+  comprueba que el `startCommand` del archivo invoca esta opción del comando.
+
+### Revisar y aplicar el archivo
+
+Requiere Node 22 o superior y Railway CLI 5.42.1 o superior, ya autenticada.
+
+```powershell
+cd .railway
+npm ci
+railway link            # proyecto PLEXO y el entorno destino
+railway config plan     # sólo lee
+railway config apply    # sólo si el plan toca únicamente <prefijo>-geografia
+```
+
+En Windows con Git Bash, si `plan` dice que la CLI es vieja aunque no lo sea,
+la SDK no pudo ejecutar el *shim* de npm. Usar el binario real:
+
+```bash
+R="$APPDATA/npm/node_modules/@railway/cli/bin/railway.exe"; _="$R" "$R" config plan
+```
+
+**AGC no se aplica** hasta que el analista funcional valide QA. Para replicar en
+AGC: `railway link` al entorno AGC, `plan`, revisar y `apply`.
+
+### Estado en QA
 
 | Campo | Valor |
 |---|---|
-| Servicio | `cauce-geografia` |
-| ID | `f14c805f-ba47-441c-ae3f-4880bb16692f` |
-| Repositorio / rama | `Mkdir-arg/SistemaDeSalud` / `main` |
-| Root directory | `/backend` |
-| Dockerfile | `/backend/Dockerfile` |
-| Cron | `0 6 * * *`, UTC: diariamente a las **03:00 Argentina** |
-| Réplicas | 1 |
-| Restart policy | `NEVER` |
-| Healthcheck / pre-deploy command | Ninguno |
-| Dominio público / volumen propio | Ninguno |
+| Proyecto | PLEXO, `5c9e06ca-364f-423f-9ef1-cd41c815b35b` |
+| Entorno | QA, `99fa9ab6-f0d7-4cc7-813e-60fd5a86d3e4` |
+| Servicio | `plexo-qa-geografia`, `35ba22a2-575b-479f-a173-08b393dcb309` |
+| Instancia del servicio | `f3ecb4bb-ce48-40ec-80b7-13e60726abf0` |
 
-Start command exacto (una sola línea):
+El servicio anterior, `cauce-geografia`, se eliminó junto con el entorno demo el
+26/11/2026.
 
-```text
-/entrypoint.sh python manage.py shell -c "from django.core.management import call_command; from apps.geografia.models import Catalogo; from apps.geografia.sincronizacion import corresponde; pendiente=corresponde(Catalogo.objects.filter(pk=1).first()); print('Geografia cron: actualizar' if pendiente else 'Geografia cron: catalogo vigente o reintento pendiente'); call_command('sincronizar_geografia') if pendiente else None"
-```
+### Ejecutar ahora y ver corridas
 
-Se reutilizan `corresponde()` y el comando `sincronizar_geografia` existentes.
-El pequeño envoltorio operativo sólo decide si invocarlo; no implementa otra
-descarga/publicación ni requiere cambios de modelos, migraciones o dependencias.
-Al cambiar el nombre o contrato de esas funciones, revisar también este comando
-en Railway. No copiar el comando del servidor web: iniciaría Gunicorn sin salir.
-
-Variables del servicio, sin valores secretos en el repositorio:
-
-| Variable | Valor o referencia Railway |
-|---|---|
-| `DATABASE_URL` | `${{cauce-api.DATABASE_URL}}` |
-| `DATABASE_SSL` | `${{cauce-api.DATABASE_SSL}}` |
-| `DJANGO_SECRET_KEY` | `${{cauce-api.DJANGO_SECRET_KEY}}` |
-| `ENTORNO` | `${{cauce-api.ENTORNO}}` |
-| `DJANGO_DEBUG` | `0` |
-| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` |
-| `EJECUTAR_MIGRACIONES` | `0` |
-| `SEED_DEMO` | `0` |
-| `SEED_GUARDIA` | `0` |
-| `PYTHONUNBUFFERED` | `1` |
-
-Las variables y el comando se configuraron **antes** de conectar el repositorio,
-para impedir migraciones, seeds o un servidor web accidental en el primer arranque.
-La API sigue siendo responsable de aplicar migraciones. La tarea requiere que
-el esquema de #136 ya esté aplicado. No necesita credenciales de correo, RENAPER,
-OSTEL ni almacenamiento de archivos. Las referencias siguen la configuración de
-la API sin copiar sus secretos al disco.
-
-## Frecuencia, errores y costo
-
-- Sin catálogo: intenta la carga inicial en la primera ejecución.
-- Con catálogo actualizado hace menos de 7 × 24 horas: termina sin llamar a Georef.
-- Con catálogo vencido: actualiza si pasaron al menos 24 horas desde el último intento.
-- Si la descarga falla: el comando sale con error, registra el fallo y conserva
-  el último catálogo válido. No se publica una descarga parcial. No hay un bucle
-  de reinicios; el próximo turno vuelve a evaluar la condición.
-- Los intervalos son duraciones exactas, no fechas de calendario. Por la hora de
-  la primera carga y las variaciones de arranque de Railway, una actualización
-  puede ocurrir entre 7 y aproximadamente 8 días después de la anterior; un
-  reintento fallido puede esperar hasta aproximadamente 48 horas. Una caída de
-  plataforma puede alargar esos plazos. No se promete puntualidad al minuto.
-- Railway omite un turno si el anterior sigue activo. El código limita tamaño,
-  paginación y tiempos de descarga; no equivale a un límite total de ejecución
-  de PostgreSQL. Si una ejecución queda activa, investigar antes de forzar otra.
-- Publicación transaccional: conserva referencias históricas y lugares retirados;
-  dos publicaciones concurrentes no deben reemplazarse con una versión vieja.
-
-No queda un contenedor en espera entre ejecuciones. Esto reduce consumo frente
-al worker 24/7, pero **no garantiza factura sin aumento**: arranques, CPU/RAM,
-builds, transferencia y almacenamiento pueden consumir créditos o generar cargos.
-Verificar consumo real en Railway; no se estableció aquí un presupuesto monetario.
-La comprobación diaria tiene un pequeño costo aunque no descargue.
-
-## Comprobar operación
-
-Con Railway CLI autenticada, sin volcar variables ni credenciales:
+Un deploy de un cron sólo construye la imagen: no ejecuta la tarea. Para una
+corrida manual (equivale a **Run now** del panel):
 
 ```powershell
-railway deployment list -p 5c9e06ca-364f-423f-9ef1-cd41c815b35b -e production -s cauce-geografia --limit 3 --json
-railway logs -p 5c9e06ca-364f-423f-9ef1-cd41c815b35b -e production -s cauce-geografia --lines 30
+railway api 'mutation { deploymentInstanceExecutionCreate(input:{serviceInstanceId:"f3ecb4bb-ce48-40ec-80b7-13e60726abf0"}) }'
 ```
 
-En logs debe aparecer `EJECUTAR_MIGRACIONES=0`, nunca migraciones ni seeds.
-Una carga muestra `Geografia cron: actualizar` y `Geografía: N entidades;
-publicado=True.`. Un turno sin descarga muestra `catalogo vigente o reintento
-pendiente` y termina normalmente. Revisar que el contenedor salga con código 0;
-un cron terminado no debe interpretarse como un servidor caído. `SUCCESS` de un
-build, por sí solo, no acredita publicación del catálogo ni salida del proceso.
-
-Desde una sesión autorizada de la aplicación, comprobar
-`GET /api/geografia/estado/`: versión positiva, `actualizado` reciente y `error`
-vacío. `GET /api/estado/` incorpora la antigüedad/error del catálogo; requiere
-autenticación y puede degradarse también por otros componentes.
-`/api/health/` no comprueba la carga de Georef. Un 401 anónimo en los endpoints
-de estado es esperado y no prueba que el catálogo esté cargado.
-
-Para diagnóstico de DB, usar una consulta de **sólo lectura** dentro de `cauce-api`
-con `railway ssh`, limitada a versión/fechas/error y conteos de lugares por tipo
-y origen. No listar domicilios ni lugares manuales. No usar `railway run`, que
-ejecuta código local con acceso a la base remota. Revisar el tablero de cron y
-el catálogo después de cada actualización semanal; no se configuró alerta externa.
-
-## Reejecución, suspensión y reversión
-
-En el servicio `cauce-geografia` de Railway, usar **Run now** para una ejecución
-manual. Un deploy/redeploy puede sólo construir la imagen de un cron
-(`buildOnly`), sin ejecutar la tarea: no usarlo como prueba de carga inicial.
-La ejecución manual usa la misma condición: si el catálogo está vigente termina
-sin descargar. Con la CLI actual, el equivalente a Run now es:
+Corridas registradas por Railway y logs:
 
 ```powershell
-railway api 'mutation { deploymentInstanceExecutionCreate(input:{serviceInstanceId:"ac08a0d8-7dc0-4589-b3b7-9dc51f93f53e"}) }' --compact
+railway api 'query { deploymentInstanceExecutions(input:{serviceId:"35ba22a2-575b-479f-a173-08b393dcb309", environmentId:"99fa9ab6-f0d7-4cc7-813e-60fd5a86d3e4"}, first: 10) { edges { node { id status createdAt updatedAt } } } }'
+railway logs -p 5c9e06ca-364f-423f-9ef1-cd41c815b35b -e QA -s plexo-qa-geografia --lines 30
 ```
 
-Ese ID identifica la instancia de este servicio en este entorno; si se recrea,
-obtener el nuevo ID con `railway status -p 5c9e06ca-364f-423f-9ef1-cd41c815b35b
--e production --json`, sin consultar variables. Verificar que corresponda a
-`cauce-geografia` antes de ejecutar. Evitar
-forzar `sincronizar_geografia` sin esa condición salvo intervención deliberada.
-Nunca activar `--periodico` para un cron ni esconder errores con `|| true`.
+En los logs debe aparecer `EJECUTAR_MIGRACIONES=0` y nunca migraciones ni seeds.
+Un cron que terminó con código 0 no es un servidor caído.
 
-Para suspender de forma reversible, **desconectar la fuente y retirar el cron
-del servicio**, deteniendo además cualquier ejecución activa; comprobar que no
-queden despliegues pendientes. No dejar un servicio sin cron conectado a `main`,
-porque otro despliegue podría ejecutarlo. No modificar `cauce-api`, `cauce-reloj`
-ni `cauce-respaldos`. Para reactivar, restaurar cron/configuración segura antes
-de reconectar la fuente. La suspensión no borra el catálogo: UI y carga manual
-siguen disponibles, aunque el catálogo envejece y el estado lo advierte.
+Si el servicio se recrea, el ID de instancia cambia. Obtenerlo con
+`railway status --json` (sin listar variables) y actualizar esta tabla.
 
-Si una actualización da un resultado inesperado, suspender próximas ejecuciones
-y revisar evidencia antes de intervenir datos. Detener/revertir código no deshace
-una publicación ya confirmada. No borrar tablas, resetear versiones ni restaurar
-la base completa para revertir únicamente este servicio.
+### Suspender
 
-## Evidencia y límites
+Quitar el cron del servicio (o desconectar la fuente) y comprobar que no queden
+ejecuciones activas. Para que el cambio dure, editar también
+`.railway/railway.ts`; si no, el próximo `apply` lo restaura. Suspender no borra
+el catálogo: la UI y la carga manual siguen funcionando y el estado avisa la
+antigüedad. Detener el cron no deshace una publicación ya confirmada.
 
-La evidencia fechada de activación y primera carga está en el
-[informe de #136](../plans/2026-10-22-issue136-avance.md). Una ejecución inicial
-correcta no acredita por adelantado el próximo disparo automático ni estabilidad
-de Georef; comprobar el turno siguiente y el consumo en Railway. El seguimiento
-del 06/11/2026 observó los disparos diarios del 28/10 al 06/11 terminados; la
-publicación semanal del 04/11 sigue sin confirmar por logs o estado del catálogo.
+## Otra infraestructura
 
-La lista de ejecuciones del cron se puede leer sin `ssh` ni variables:
+Cualquier programador sirve si cumple tres reglas:
 
-```powershell
-railway api 'query { deploymentInstanceExecutions(input:{serviceId:"f14c805f-ba47-441c-ae3f-4880bb16692f", environmentId:"c0acf9b3-a608-441c-876c-cbcd5fed4860"}, first: 20) { edges { node { id status createdAt updatedAt } } } }' --compact
+1. Usa la **misma imagen** que la API.
+2. **No migra ni siembra** (`EJECUTAR_MIGRACIONES=0`, `SEED_DEMO=0`, `SEED_GUARDIA=0`).
+3. **No superpone corridas** ni convive con el worker `--periodico` sobre la misma base.
+
+La API, o un `migrate` previo, debe haber aplicado las migraciones.
+
+### crontab (host con Docker)
+
+```cron
+# 06:00 UTC todos los días; el comando decide si descarga.
+0 6 * * * docker run --rm --env-file /etc/plexo/geografia.env plexo-backend:<tag> python manage.py sincronizar_geografia --si-corresponde >> /var/log/plexo-geografia.log 2>&1
 ```
 
-Referencias oficiales: [Cron jobs](https://docs.railway.com/cron-jobs) y
-[planes y consumo](https://docs.railway.com/pricing/plans).
+`/etc/plexo/geografia.env` contiene `DATABASE_URL`, `DATABASE_SSL`,
+`DJANGO_SECRET_KEY`, `ENTORNO`, `DJANGO_DEBUG=0`, `DJANGO_ALLOWED_HOSTS=localhost`,
+`EJECUTAR_MIGRACIONES=0`, `SEED_DEMO=0` y `SEED_GUARDIA=0`. Permisos `600`; no
+versionarlo.
+
+### docker compose
+
+El `docker-compose.yml` ya trae el servicio `geografia` con `--periodico`. Para
+reemplazarlo por un cron del host, detener ese servicio y programar:
+
+```bash
+docker compose run --rm geografia python manage.py sincronizar_geografia --si-corresponde
+```
+
+### Kubernetes
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: plexo-geografia
+spec:
+  schedule: "0 6 * * *"
+  timeZone: "Etc/UTC"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0          # el comando ya limita los reintentos a uno por día
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: geografia
+              image: plexo-backend:<tag>
+              command: ["/entrypoint.sh", "python", "manage.py", "sincronizar_geografia", "--si-corresponde"]
+              envFrom:
+                - secretRef:
+                    name: plexo-backend   # DATABASE_URL, DJANGO_SECRET_KEY, ENTORNO...
+              env:
+                - {name: EJECUTAR_MIGRACIONES, value: "0"}
+                - {name: SEED_DEMO, value: "0"}
+                - {name: SEED_GUARDIA, value: "0"}
+                - {name: DJANGO_DEBUG, value: "0"}
+                - {name: DJANGO_ALLOWED_HOSTS, value: "localhost"}
+```
+
+En todos los casos, verificar con `GET /api/geografia/estado/`.
+
+## Costo
+
+No queda un contenedor encendido entre corridas, pero cada arranque, build y
+descarga consume recursos. Revisar el consumo real en el panel de Railway.
+
+## Historial
+
+- 27/10/2026 (#136): `cauce-geografia` se creó a mano en el entorno demo, con un
+  `manage.py shell -c` que envolvía `corresponde()`. Evidencia en el
+  [informe de #136](../plans/2026-10-22-issue136-avance.md).
+- 26/11/2026: se eliminó el entorno demo y con él el cron.
+- 27/11/2026 (#234): el cron pasa a código (`--si-corresponde` y
+  `.railway/railway.ts`), guarda historial de corridas y corre en QA.
+
+Referencias: [Cron jobs](https://docs.railway.com/cron-jobs) y
+[Infrastructure as Code](https://docs.railway.com/infrastructure-as-code).

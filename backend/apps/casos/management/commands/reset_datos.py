@@ -2,7 +2,7 @@
 Borra TODOS los datos de dominio (instituciones, áreas, grupos, flujos,
 formularios, casos, ciudadanos, historias y usuarios de demo), conservando solo
 los super admin de plataforma. Sirve para dejar la base limpia y configurar un
-escenario real desde cero. Funciona igual en SQLite o Postgres.
+escenario desde cero. Funciona en SQLite o Postgres, nunca en producción.
 
     python manage.py reset_datos          # pide confirmación
     python manage.py reset_datos --si      # sin confirmación (CI / Docker)
@@ -12,6 +12,7 @@ from django.db import transaction
 
 from apps.accounts.models import LegajoProfesional, Membresia, Usuario
 from apps.casos.models import Caso
+from apps.demo.entorno import exigir_entorno_de_prueba
 from apps.flujos.models import Conexion, Flujo, Nodo, VersionFlujo
 from apps.formularios.models import Campo, Formulario
 from apps.instituciones.models import Area, Grupo, Institucion, Subarea
@@ -19,19 +20,22 @@ from apps.registros.models import Ciudadano, EntradaHistoria, Estudio, HistoriaC
 
 
 class Command(BaseCommand):
-    help = "Borra todos los datos de dominio, conservando los super admin."
+    help = "Borra todos los datos de dominio, conservando los super admin. No admite producción."
 
     def add_arguments(self, parser):
         parser.add_argument("--si", action="store_true", help="No pedir confirmación.")
 
-    @transaction.atomic
     def handle(self, *args, **options):
+        exigir_entorno_de_prueba("reset_datos")
         if not options["si"]:
             resp = input("Esto borra TODOS los datos (salvo super admins). ¿Seguro? [escribí 'si']: ")
             if resp.strip().lower() != "si":
                 self.stdout.write(self.style.WARNING("Cancelado."))
                 return
+        self._reset()
 
+    @transaction.atomic
+    def _reset(self):
         # Orden seguro respecto de las FK (los casos protegen la versión).
         Caso.objects.all().delete()            # cascada: valores, fila, eventos
         EntradaHistoria.objects.all().delete()

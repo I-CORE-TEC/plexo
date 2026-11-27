@@ -1,10 +1,17 @@
 """Guarda de entorno, calendario relativo y carga completa del entorno de demo."""
+import hashlib
+import json
+import os
+import subprocess
+import sys
 import time
 from datetime import date, datetime, timedelta
 from io import StringIO
 from unittest import skipUnless
 from unittest.mock import patch
 
+from django.conf import settings
+from django.core.files.storage import storages
 from django.core.management import call_command, get_commands
 from django.core.management.base import CommandError
 from django.db import connection
@@ -17,14 +24,15 @@ from apps.agenda.models import Turno
 from apps.auditoria.models import AccesoClinico
 from apps.casos.models import Caso, ItemFila
 from apps.finanzas.models import ConcesionFinanciera, Gasto, HechoAtencionCosteable, MovimientoDinero
-from apps.financiadores.models import Convenio, Plan, ReglaCobertura, SolicitudAutorizacion
+from apps.financiadores.models import Afiliado, Convenio, Plan, RegistroFactura, ReglaCobertura, SolicitudAutorizacion
 from apps.instituciones.models import Institucion
 from apps.instituciones.puesta_en_marcha import pasos as pasos_de_puesta_en_marcha
 from apps.registros import integridad
-from apps.registros.models import HistoriaClinica
+from apps.registros.models import ArchivoClinico, HistoriaClinica
 
 from .calendario import Calendario
 from .claves import CLAVE_POR_DEFECTO
+from .test_archivos_171 import EN_MEMORIA
 from .trabajo import INFORMATIVOS, trabajo_por_usuario
 
 # Todos los comandos de carga ficticia, descubiertos y no listados a mano: uno
@@ -86,7 +94,7 @@ class CalendarioTests(SimpleTestCase):
 
 
 class EntornoTests(TestCase):
-    @override_settings(ENTORNO="produccion")
+    @override_settings(ENTORNO="produccion", SEED_DEMO=True, SEED_DEMO_OSTEL=True)
     def test_en_produccion_ningun_seed_escribe(self):
         self.assertIn("seed_entorno_demo", COMANDOS)
         self.assertGreaterEqual(len(COMANDOS), 10)
@@ -98,6 +106,15 @@ class EntornoTests(TestCase):
         self.assertFalse(Institucion.objects.exists())
         self.assertFalse(Usuario.objects.exists())
 
+    @override_settings(ENTORNO="produccion", SEED_DEMO=True, SEED_DEMO_OSTEL=True)
+    def test_reset_refuses_production_even_without_confirmation(self):
+        institution = Institucion.objects.create(nombre="Synthetic reset sentinel")
+        output = StringIO()
+        with self.assertRaisesMessage(CommandError, "ENTORNO=produccion"):
+            call_command("reset_datos", si=True, stdout=output)
+        self.assertTrue(Institucion.objects.filter(pk=institution.pk).exists())
+        self.assertEqual(output.getvalue(), "")
+
     def test_entorno_desconocido_no_arranca(self):
         from importlib import reload
 
@@ -108,7 +125,31 @@ class EntornoTests(TestCase):
         reload(modulo)
 
 
+class SeedFlagSettingsTests(SimpleTestCase):
+    def test_flags_parse_independently_and_default_to_false(self):
+        flags = ("SEED_DEMO", "SEED_DEMO_OSTEL")
+        env = {k: v for k, v in os.environ.items() if k not in flags}
+        env["ENTORNO"] = "desarrollo"
+        for assignments, expected in (
+            ({}, [False, False]),
+            ({flags[0]: "True", flags[1]: "False"}, [True, False]),
+            ({flags[0]: "false", flags[1]: "true"}, [False, True]),
+            ({flags[0]: "1", flags[1]: "0"}, [True, False]),
+            ({flags[0]: "0", flags[1]: "1"}, [False, True]),
+        ):
+            with self.subTest(assignments=assignments):
+                result = subprocess.run(
+                    [sys.executable, "-c", "import json; from config import settings; "
+                     "print(json.dumps([settings.SEED_DEMO, settings.SEED_DEMO_OSTEL]))"],
+                    cwd=settings.BASE_DIR, env={**env, **assignments}, capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout), expected)
+
+
 @skipUnless(connection.vendor == "postgresql", "La carga completa requiere PostgreSQL.")
+@override_settings(ENTORNO="desarrollo", SEED_DEMO=True, SEED_DEMO_OSTEL=False,
+                   STORAGES=EN_MEMORIA, SALUD_FACTURAS_ADJUNTOS=True)
 class CargaCompletaTests(TransactionTestCase):
     """Una carga chica anclada en el peor día: el 1° del mes, temprano.
 
@@ -137,6 +178,7 @@ class CargaCompletaTests(TransactionTestCase):
             self.cargar()
         from .test_issue111 import verificar_escenas
         verificar_escenas(self)
+        self._verify_qa_fixtures()
         ahora = timezone.now()
         mes = timezone.localdate().replace(day=1)
         self.assertEqual(mes, reloj(self.AHORA).date().replace(day=1))
@@ -250,6 +292,44 @@ class CargaCompletaTests(TransactionTestCase):
         self.assertEqual(piloto.estado, Institucion.Estado.EN_ALTA)
         pendientes = {paso for paso, hecho in pasos_de_puesta_en_marcha(piloto).items() if not hecho}
         self.assertEqual(pendientes, {"agenda_profesional", "agenda_recurso", "flujo_operativo"})
+
+    def _verify_qa_fixtures(self):
+        affiliate = Afiliado.objects.get(financiador__nombre="Mutual del Valle", documento="99029901")
+        self.assertIn("FICTICIO", affiliate.nombre)
+        self.assertEqual((affiliate.localidad, affiliate.partido, affiliate.provincia),
+                         ("Localidad de prueba", "Partido de prueba", "Provincia de prueba"))
+        self.assertIsNone(affiliate.geografia_id)
+
+        clinical = ArchivoClinico.objects.get(ciudadano__documento="FIC100011", objeto_tipo="Estudio")
+        invoice = RegistroFactura.objects.get(financiador=affiliate.financiador, numero__endswith="-001")
+        for alias, path, digest in (
+            ("default", clinical.ruta, clinical.sha256),
+            ("facturas", invoice.adjunto_ruta, invoice.adjunto_sha256),
+        ):
+            with self.subTest(storage=alias):
+                with storages[alias].open(path, "rb") as attachment:
+                    pdf = attachment.read()
+                self.assertTrue(pdf.startswith(b"%PDF-1.4") and pdf.rstrip().endswith(b"%%EOF"))
+                self.assertIn(b"FICTICIO", pdf)
+                self.assertEqual(hashlib.sha256(pdf).hexdigest(), digest)
+
+        client = APIClient()
+        client.force_authenticate(invoice.creado_por)
+        org = f"/api/financiadores/{affiliate.financiador_id}"
+        address = client.get(f"{org}/padron/", {"documento": "99029901"})
+        self.assertEqual(address.status_code, 200, address.data)
+        row, = address.data["results"]
+        self.assertEqual((row["localidad"], row["partido"], row["provincia"], row["geografia"]),
+                         ("Localidad de prueba", "Partido de prueba", "Provincia de prueba", None))
+
+        forbidden = client.get(f"/api/archivos/descargar/{clinical.ruta}")
+        self.assertEqual(forbidden.status_code, 403)
+        self.assertNotIn("Location", forbidden)
+        self.assertNotIn(b"%PDF-1.4", forbidden.content)
+
+        download = client.get(f"{org}/facturas/{invoice.pk}/adjunto/")
+        self.assertEqual(download.status_code, 200)
+        self.assertEqual(hashlib.sha256(b"".join(download.streaming_content)).hexdigest(), invoice.adjunto_sha256)
 
     def test_un_paso_que_falla_no_deja_la_base_a_medias(self):
         Institucion.objects.create(nombre="Datos previos")
