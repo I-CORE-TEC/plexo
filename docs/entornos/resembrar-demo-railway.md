@@ -24,7 +24,8 @@ si se intentan habilitar. El nombre del entorno de Railway no reemplaza `ENTORNO
 | Dejar la demo como nueva | [A. Resembrado completo](#a-resembrado-completo) | **Sí, los datos de demo y sus archivos anteriores; no el catálogo Georef** |
 | Que la demo parezca recién cargada a una hora fija | [B. Completo anclado](#b-resembrado-completo-anclado) | Igual que A |
 | Agregar OSTEL a una demo que no lo tiene | [C. Solo OSTEL](#c-solo-ostel) | No |
-| Rehacer OSTEL porque se ensayó sobre él | Camino A (no hay borrado parcial) | Igual que A |
+| Quitar datos ficticios de una prueba puntual | [E. Borrado parcial](#e-borrado-parcial) | Solo lo seleccionado y sus dependencias admitidas |
+| Restablecer todo el escenario de OSTEL | Camino A | Igual que A |
 | Renovar el turno y la sala de espera de la paciente del portal | [D. Solo el portal del paciente](#d-solo-el-portal-del-paciente) | No |
 | Comprobar que todas las cuentas entran | [Verificar los ingresos](#verificar-los-ingresos) | No |
 
@@ -204,6 +205,50 @@ Central, falla y pide correr el camino A. La clave es la de `DEMO_PASSWORD`.
 
 La paciente del portal de OSTEL (`paciente@ostel.demo.test`) es de
 `seed_ostel_demo` y no se renueva así.
+
+## E. Borrado parcial
+
+`limpiar_demo` permite retirar registros ficticios de **un solo financiador**
+sin resembrar la demo. Requiere `SEED_DEMO=True` y rechaza `ENTORNO=produccion`,
+incluso para simular. Solo debe usarse con datos confirmados como ficticios:
+el comando no los distingue por nombre ni por numeración.
+
+1. Coordinar una ventana sin ensayos ni escrituras sobre esos datos. Ejecutar
+   primero **sin** `--aplicar`. Ejemplo sintético, con IDs que debe reemplazar:
+
+   ```bash
+   railway ssh --service plexo-qa-api -- python manage.py limpiar_demo \
+     --financiador 7 --afiliados-documento 99090001-99090020 \
+     --importaciones 41,42 --solicitudes 51,52 --adjunto-factura DEMO-7-001
+   ```
+
+2. Revisar los conteos por modelo y las claves exactas del bucket. Si el
+   alcance es correcto, repetir con los mismos selectores y `--aplicar`.
+   El comando recalcula el plan; en PostgreSQL intenta bloquear escrituras
+   sobre las tablas involucradas y rechaza la operación si el bloqueo no está disponible.
+3. Confirmar el mensaje `Cambios confirmados.` y verificar que los registros
+   que quedaron fuera del plan siguen disponibles. Se registra un evento
+   administrativo de la operación con origen CLI, sin atribuirla a un usuario de la app.
+
+| Selector | Límite del borrado |
+|---|---|
+| `--afiliados-documento DESDE-HASTA` | Rango inclusivo, numérico y de igual longitud; se puede repetir. Incluye historial, legajo, datos del padrón y vínculos con pacientes. Si un titular tiene familiares, todos deben estar incluidos; no se incorporan automáticamente. No elimina pacientes ni casos. |
+| `--importaciones ID[,ID]` | Borra los lotes, no deshace la importación. Rechaza lotes cuyo historial corresponde a afiliados que quedan fuera del plan. |
+| `--solicitudes ID[,ID]` | Usa el número interno de la solicitud, no el del caso ni el número externo. Incluye eventos, usos de reservas liberadas, prescripciones y sus archivos. Bloquea reintentos fuera del plan, reservas no liberadas o usos no liberados, y referencias de espera en casos abiertos. |
+| `--adjunto-factura NUMERO` | El número debe identificar una única factura del financiador. Desvincula el archivo y limpia sus metadatos; no borra la factura. |
+
+- **Auditoría clínica:** si hay accesos asociados a los pacientes vinculados,
+  las solicitudes o las prescripciones seleccionadas, se detiene. Volver a
+  simular con `--permitir-accesos-clinicos` solo si corresponde continuar:
+  los accesos **siempre se conservan**, porque registran quién consultó el dato
+  aunque el registro consultado ya no exista.
+- **Dependencias fuera del alcance:** se enumeran y se rechaza todo el plan;
+  no se eliminan automáticamente afiliaciones de casos, reservas, consumos ni facturas.
+- **Archivos:** se exige bucket para aplicar un plan con archivos. Los objetos
+  se eliminan después del commit, nunca tras una reversión. Si falla el bucket,
+  el comando informa las claves pendientes con error, pero la base ya quedó
+  confirmada. No repetir el comando a ciegas: verificar esas claves y resolver
+  solo los objetos huérfanos por el canal de operación autorizado.
 
 ## Verificar los ingresos
 
