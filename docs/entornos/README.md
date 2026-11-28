@@ -237,6 +237,22 @@ de la misma imagen corriendo `migrate` a la vez toman locks de DDL en distinto
 orden y la migración puede quedar a mitad de camino con `django_migrations`
 diciendo que terminó.
 
+## Verificar el límite de intentos del login institucional
+
+Desde `backend/`, con PostgreSQL 16 aislado y las variables de
+[CI](../../.github/workflows/backend.yml), ejecutá:
+
+```bash
+python manage.py test apps.accounts.test_login_limite_auditoria172 --noinput
+```
+
+Las pruebas mantienen el reloj del limitador en una ventana fija de 15 minutos:
+si el reloj real pasa a la siguiente entre el décimo fallo y el próximo intento,
+un login correcto devuelve `200` en lugar de `429`. Solo la prueba de renovación
+avanza el reloj para verificar que la ventana siguiente vuelve a admitir el
+ingreso. Se usa el caché real en PostgreSQL; no se congela el reloj global ni se
+cambia el comportamiento en ejecución.
+
 ## Límites conocidos
 
 - **El admin de Django (`/admin/`) no funciona por http en estos entornos.** Con
