@@ -13,10 +13,15 @@ from rest_framework.test import APITestCase
 from .models import Usuario
 
 CLAVE = "Clave-sintetica-login-172!"
+INICIO_VENTANA_LOGIN = 1_800_000_000.0
 
 
 class LimiteLoginAuditoria172Tests(APITestCase):
     def setUp(self):
+        # Keep requests in the same login window without changing the cache or system clock.
+        self.reloj = self.enterContext(
+            patch("apps.accounts.auth_views._reloj", return_value=INICIO_VENTANA_LOGIN)
+        )
         caches["portal"].clear()
         self.usuario = Usuario.objects.create_user("login-limite@example.test", CLAVE, nombre="Persona")
         self.otra = Usuario.objects.create_user("otra-login@example.test", CLAVE, nombre="Otra")
@@ -49,13 +54,11 @@ class LimiteLoginAuditoria172Tests(APITestCase):
             self.assertEqual(self.login(self.usuario.email, CLAVE).status_code, 200)
 
     def test_la_ventana_siguiente_vuelve_a_permitir(self):
-        ahora = 1_800_000_000.0
-        with patch("apps.accounts.auth_views._reloj", return_value=ahora):
-            for _ in range(10):
-                self.login(self.usuario.email, "incorrecta")
-            self.assertEqual(self.login(self.usuario.email, CLAVE).status_code, 429)
-        with patch("apps.accounts.auth_views._reloj", return_value=ahora + 900):
-            self.assertEqual(self.login(self.usuario.email, CLAVE).status_code, 200)
+        for _ in range(10):
+            self.assertEqual(self.login(self.usuario.email, "incorrecta").status_code, 401)
+        self.assertEqual(self.login(self.usuario.email, CLAVE).status_code, 429)
+        self.reloj.return_value = INICIO_VENTANA_LOGIN + 900
+        self.assertEqual(self.login(self.usuario.email, CLAVE).status_code, 200)
 
     def test_el_cache_no_guarda_el_email_en_claro(self):
         self.login(self.usuario.email, "incorrecta")
