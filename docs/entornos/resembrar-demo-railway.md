@@ -134,7 +134,8 @@ Seguir [Verificar los ingresos](#verificar-los-ingresos) y estos casos de QA:
 
 1. **#136 – domicilio legado:** en el padrón de Mutual del Valle buscar
    `99029901` (`FICTICIO QA Domicilio Legado`). Abrir la ficha y comprobar que
-   conserva los tres textos del domicilio y muestra «Sin homologar».
+   en la sección **Domicilio** de la pestaña **Datos** aparecen los tres textos
+   con la marca «Sin homologar» junto a cada valor, sin abrir **Editar domicilio**.
 2. **#171 – adjunto clínico:** en Hospital Central buscar a Andrea Paniagua
    (`FIC100011`). El hemograma del portal incluye un PDF marcado como ficticio.
    Usar la URL de descarga protegida con un usuario sin `historia_clinica` y
