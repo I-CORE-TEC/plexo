@@ -19,9 +19,16 @@ export default function TarjetaFicha({ titulo, descripcion, accion, icono, class
 
 // «Sin informar» se atenúa: en una ficha a medio cargar es la mayoría de los
 // valores y, en negrita, compite con los datos que sí existen.
-export function DatosFicha({ campos, valores, className }) {
+export function DatosFicha({ campos, valores, detalles, className }) {
   return <dl className={cn("grid grid-cols-2 gap-x-6 gap-y-4 text-sm lg:grid-cols-3", className)}>{campos.map((campo) => {
-    const valor = valorCampoPadron(campo, valores?.[campo.name]);
-    return <div key={campo.name} className="min-w-0"><dt className="text-xs font-medium uppercase tracking-wide text-texto-debil">{campo.label}</dt><dd className={cn("mt-1 break-words whitespace-pre-wrap", valor === "Sin informar" ? "text-texto-tenue" : "font-medium")}>{valor}</dd></div>;
+    const detalle = detalles?.[campo.name];
+    const valor = valorCampoPadron(campo, detalle?.valor ?? valores?.[campo.name]);
+    return <div key={campo.name} className="min-w-0">
+      <dt className="text-xs font-medium uppercase tracking-wide text-texto-debil">{campo.label}</dt>
+      <dd className={cn("mt-1 break-words whitespace-pre-wrap", valor === "Sin informar" ? "text-texto-tenue" : "font-medium")}>
+        {valor}
+        {detalle?.nota && <span className="block text-xs font-normal text-texto-debil">{detalle.nota}</span>}
+      </dd>
+    </div>;
   })}</dl>;
 }
