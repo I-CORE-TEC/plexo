@@ -2,6 +2,8 @@
 
 Material para la demo comercial: [guion breve y recorrido del comprador](../comercial/).
 
+Entorno compartido de pruebas en Railway (rama `qa`): [QA en Railway](qa-railway.md).
+
 Levantados y verificados el **17/09/2026** sobre el `main` actual (commit `4947633`).
 
 | | Entorno **vacío** | Entorno **demo** |
@@ -72,12 +74,13 @@ configurado.
 
 ## Rehacer el entorno demo desde cero
 
-Un solo comando **vacía la base** y carga todo, en orden y en una sola
-transacción: si un paso falla, la base queda como estaba.
+Un solo comando **reemplaza los datos de demo** y carga todo en una transacción:
+si un paso falla, la base queda como estaba. El catálogo oficial de Georef y su
+historial se conservan (ver [resembrado de QA](resembrar-demo-railway.md)).
 
 ```bash
 $DEMO up -d --build       # la imagen trae el código horneado: sin --build corre el de la última construcción
-$DEMO exec backend python manage.py seed_entorno_demo --noinput
+$DEMO exec -e SEED_DEMO=True backend python manage.py seed_entorno_demo --noinput
 ```
 
 Tarda **entre 5 y 7 minutos** (medido en Docker local), y mientras corre la aplicación no responde:
@@ -107,7 +110,7 @@ las 8, aunque se corra días antes: a las 9 hay pacientes esperando desde hace u
 rato, octubre tiene movimiento y las autorizaciones abiertas vencen el 03/10.
 
 ```bash
-$DEMO exec backend python manage.py seed_entorno_demo --noinput --ancla 2026-10-01T08:00
+$DEMO exec -e SEED_DEMO=True backend python manage.py seed_entorno_demo --noinput --ancla 2026-10-01T08:00
 ```
 
 Dos consecuencias hasta que llega el ancla. La aplicación muestra datos con
@@ -163,7 +166,7 @@ hace falta, no un procedimiento probado.
 1. **Respaldo o confirmación de que la base es descartable** (criterio 6 del
    #65). El comando vacía la base entera.
 2. En el servicio del backend, variables `ENTORNO=demo`, `DEMO_PASSWORD` (se
-   guarda fuera del repositorio), `SEED_DEMO=0` y `SEED_GUARDIA=0`. Cambiar
+   guarda fuera del repositorio), `SEED_DEMO=True` y `SEED_GUARDIA=0`. Cambiar
    variables **redespliega el servicio**: esperá a que quede sano antes del paso 3.
 3. Desde una consola **del contenedor** del backend (`railway ssh` o la consola
    web): `python manage.py seed_entorno_demo --noinput --ancla 2026-10-01T08:00`.
@@ -233,6 +236,22 @@ pero también espera al esquema. Cuatro contenedores
 de la misma imagen corriendo `migrate` a la vez toman locks de DDL en distinto
 orden y la migración puede quedar a mitad de camino con `django_migrations`
 diciendo que terminó.
+
+## Verificar el límite de intentos del login institucional
+
+Desde `backend/`, con PostgreSQL 16 aislado y las variables de
+[CI](../../.github/workflows/backend.yml), ejecutá:
+
+```bash
+python manage.py test apps.accounts.test_login_limite_auditoria172 --noinput
+```
+
+Las pruebas mantienen el reloj del limitador en una ventana fija de 15 minutos:
+si el reloj real pasa a la siguiente entre el décimo fallo y el próximo intento,
+un login correcto devuelve `200` en lugar de `429`. Solo la prueba de renovación
+avanza el reloj para verificar que la ventana siguiente vuelve a admitir el
+ingreso. Se usa el caché real en PostgreSQL; no se congela el reloj global ni se
+cambia el comportamiento en ejecución.
 
 ## Límites conocidos
 

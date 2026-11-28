@@ -39,6 +39,60 @@ async function provinciaManual(page, nombre, pagina = page) {
   await page.getByRole("textbox", { name: "Provincia · carga manual", exact: true }).fill(nombre);
 }
 
+for (const { width, geografia, expected } of [
+  {
+    width: 1440,
+    geografia: null,
+    expected: [
+      ["Provincia", "Provincia de prueba", "Sin homologar"],
+      ["Partido", "Partido de prueba", "Sin homologar"],
+      ["Localidad", "Localidad de prueba", "Sin homologar"],
+    ],
+  },
+  {
+    width: 390,
+    geografia: {
+      provincia: { id: 7, nombre: "Provincia de prueba", origen: "georef" },
+      partido: { id: 8, nombre: "Partido de prueba", origen: "manual" },
+      localidad: null,
+    },
+    expected: [
+      ["Provincia", "Provincia de prueba", "Georef"],
+      ["Partido", "Partido de prueba", "Manual · sin verificar"],
+      ["Localidad", "Localidad de prueba", "Sin homologar"],
+    ],
+  },
+]) {
+  test(`shows affiliate address origins in read-only data at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await escenario(page);
+    const afiliado = {
+      id: 45, nombre: "Afiliado ficticio", numero: "GEO-45", documento: "99029901",
+      provincia: "Provincia de prueba", partido: "Partido de prueba", localidad: "Localidad de prueba", geografia,
+    };
+    await page.route("**/api/financiadores/21/ficha-afiliado/?*", (route) => route.fulfill({ json: { ...lista([]), afiliado } }));
+    await page.route("**/api/financiadores/21/padron/45/", (route) => route.fulfill({ json: afiliado }));
+    await page.goto("/financiadores/padron/45?financiador=21");
+
+    const domicilio = page.getByRole("region", { name: "Ficha administrativa del padrón" })
+      .getByRole("region", { name: "Domicilio", exact: true });
+    for (const [label, value, origin] of expected) {
+      const field = domicilio.getByRole("term").filter({ hasText: new RegExp(`^${label}$`) }).locator("..");
+      await expect(field.getByRole("definition")).toContainText(value);
+      await expect(field.getByRole("definition").getByText(origin, { exact: true })).toBeVisible();
+    }
+    await expect(domicilio.getByRole("definition").getByText("Sin informar", { exact: true })).toHaveCount(5);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+
+    if (!geografia) {
+      await domicilio.getByRole("button", { name: "Editar domicilio" }).press("Enter");
+      const provincia = page.getByRole("dialog", { name: "Editar domicilio" }).getByRole("combobox", { name: "Provincia", exact: true });
+      await expect(provincia).toHaveValue("Provincia de prueba");
+      await expect(provincia).toHaveAccessibleDescription("Sin homologar");
+    }
+  });
+}
+
 test("abrir los resultados no cambia el tamaño de la tarjeta de domicilio", async ({ page }) => {
   await escenario(page);
   await page.goto("/pacientes?nuevo=1");

@@ -12,6 +12,7 @@ import TarjetaFicha, { DatosFicha } from "./TarjetaFicha";
 import { derechoAfiliacionPadron } from "./padronTablaEstado";
 import { ADMINISTRATIVOS, BLOQUES_PADRON, TIPOS_PLAN } from "./padronCampos";
 import { GeografiaTexto } from "@/components/issue136_Geografia";
+import { geografiaInicial, nombreGeo, origenGeo } from "@/lib/issue136_geografia";
 
 const ICONOS = { Identidad: "idCard", Contacto: "bell", Domicilio: "mapPin", "Régimen y trabajo": "building", "Trámite y credencial": "clipboard", "Baja administrativa": "power" };
 
@@ -37,6 +38,11 @@ export default function FichaPadronAdministrativa({ afiliado, organizacion, usua
   if (ficha.isLoading) return <Spinner label="Consultando ficha administrativa…" />;
   if (ficha.error) return <Card className="p-4"><p role="alert">{errorFinanciador(ficha.error)}</p><Button variant="secondary" onClick={() => ficha.refetch()}>Reintentar ficha administrativa</Button></Card>;
   const persona = ficha.data;
+  const domicilio = Object.entries(geografiaInicial(persona.geografia, persona));
+  const detallesDomicilio = Object.fromEntries(domicilio.flatMap(([nivel, lugar]) => {
+    const valor = nombreGeo(lugar);
+    return valor ? [[nivel, { valor, nota: origenGeo(lugar) }]] : [];
+  }));
   const permisos = persona.permisos || {};
   const camposPlan = [{ name: "plan", label: "Plan", numeric: true, options: (planes.data || []).filter((plan) => plan.activo !== false || plan.id === persona.plan).map((plan) => ({ id: plan.id, nombre: `${plan.nombre}${plan.activo === false ? " (inactivo actual)" : ""}` })) }];
   const derecho = derechoAfiliacionPadron(persona);
@@ -49,8 +55,7 @@ export default function FichaPadronAdministrativa({ afiliado, organizacion, usua
       </TarjetaFicha>
       <div className={integrado ? "space-y-4" : "grid items-start gap-4 xl:grid-cols-2"}>{BLOQUES_PADRON.map((bloque) => <section key={bloque.titulo} aria-label={bloque.titulo} className={!integrado && bloque.titulo === "Identidad" ? "xl:col-span-2" : undefined}>
         <TarjetaFicha titulo={bloque.titulo} icono={ICONOS[bloque.titulo]} descripcion={bloque.titulo === "Régimen y trabajo" ? "Empleador y actividad según el régimen; subsidio aplicable a desempleo. Campos sin informar se conservan para el legado. No hay validación automática ante ARCA o ANSES." : bloque.descripcion} accion={puedeEditar && <Button size="sm" variant="secondary" onClick={() => setEdicion(bloque)}>Editar {bloque.titulo.toLocaleLowerCase("es-AR")}</Button>}>
-          <DatosFicha campos={bloque.campos} valores={persona} className={!integrado && bloque.titulo !== "Identidad" ? "lg:grid-cols-2" : undefined} />
-          {bloque.titulo === "Domicilio" && <GeografiaTexto value={persona.geografia} />}
+          <DatosFicha campos={bloque.campos} valores={persona} detalles={bloque.titulo === "Domicilio" ? detallesDomicilio : undefined} className={!integrado && bloque.titulo !== "Identidad" ? "lg:grid-cols-2" : undefined} />
           {bloque.titulo === "Régimen y trabajo" && <GeografiaTexto value={persona.geografia_laboral} />}
         </TarjetaFicha>
       </section>)}</div>

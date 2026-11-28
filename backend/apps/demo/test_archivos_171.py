@@ -33,7 +33,8 @@ class BucketEnMemoria(SimpleTestCase):
     """Un bucket vacío por test: cada override de STORAGES rehace los almacenamientos."""
 
     def setUp(self):
-        ajuste = override_settings(STORAGES=EN_MEMORIA, ALMACENAMIENTO_EN_BUCKET=True, ENTORNO="demo")
+        ajuste = override_settings(STORAGES=EN_MEMORIA, ALMACENAMIENTO_EN_BUCKET=True,
+                                  ENTORNO="desarrollo", SEED_DEMO=True)
         ajuste.enable()
         self.addCleanup(ajuste.disable)
 
@@ -54,11 +55,12 @@ class VaciadoDeArchivosTests(BucketEnMemoria):
     def test_bucket_vacio(self):
         self.assertEqual(archivos.claves_a_vaciar(), [])
 
-    def test_fuera_de_demo_o_sin_bucket_no_toca_nada(self):
+    def test_production_disabled_flag_or_local_storage_do_not_touch_bucket(self):
         poblar()
-        for ajuste in ({"ENTORNO": "produccion"}, {"ENTORNO": "desarrollo"}, {"ALMACENAMIENTO_EN_BUCKET": False}):
+        for ajuste in ({"ENTORNO": "produccion"}, {"SEED_DEMO": False}, {"ALMACENAMIENTO_EN_BUCKET": False}):
             with self.subTest(**ajuste), override_settings(**ajuste):
                 self.assertEqual(archivos.claves_a_vaciar(), [])
+                self.assertEqual(archivos.borrar([("default", "uploads/1/a.pdf")]), [])
         self.assertTrue(storages["default"].exists("uploads/1/a.pdf"))
 
     def test_un_borrado_fallido_se_informa_y_no_frena_el_resto(self):
@@ -111,7 +113,14 @@ class SeedEntornoDemoVaciaArchivosTests(BucketEnMemoria):
 
     def test_en_produccion_se_niega_sin_tocar_archivos(self):
         poblar()
-        with override_settings(ENTORNO="produccion"), self.assertRaises(CommandError):
-            self.correr(lambda *_: None)
-        with override_settings(ENTORNO="demo"):
-            self.assertEqual(len(archivos.claves_a_vaciar()), 3)
+        with override_settings(ENTORNO="produccion"), self.assertRaisesMessage(CommandError, "ENTORNO=produccion"):
+            self.correr(lambda *_: self.fail("Production must not load the database"))
+        self.assertEqual(len(archivos.claves_a_vaciar()), 3)
+
+    @override_settings(ENTORNO="demo", SEED_DEMO=False, SEED_DEMO_OSTEL=True)
+    def test_disabled_flag_refuses_even_in_demo_without_loading_or_deleting(self):
+        poblar()
+        with self.assertRaisesMessage(CommandError, "SEED_DEMO=True"):
+            self.correr(lambda *_: self.fail("Disabled seed must not load the database"))
+        self.assertTrue(storages["default"].exists("uploads/1/a.pdf"))
+        self.assertTrue(storages["facturas"].exists("f.pdf"))

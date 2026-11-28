@@ -25,6 +25,7 @@ from apps.agenda import motor as agenda_motor
 from apps.agenda.models import Agenda, Turno
 from apps.casos import motor
 from apps.casos.models import Caso
+from apps.demo.documentos import pdf_una_pagina
 from apps.registros.models import ArchivoClinico, Estudio, HistoriaClinica
 
 from .models import CuentaPaciente
@@ -179,35 +180,10 @@ def informe_pdf(ciudadano, tipo, fecha):
     Dice en el propio documento que es ficticio: puede terminar impreso o
     reenviado fuera de la demo.
     """
-    def texto(s):
-        # Helvetica estándar con WinAnsi: alcanza para el español.
-        return s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)").encode("cp1252")
-
-    lineas = [
+    return pdf_una_pagina([
         (18, f"Informe de {tipo.lower()}"),
         (11, f"Paciente: {ciudadano.nombre} {ciudadano.apellido} · Documento {ciudadano.documento}"),
         (11, f"{ciudadano.institucion.nombre} · {fecha:%d/%m/%Y}"),
         (11, "Resultado: dentro de los valores de referencia."),
         (11, "DOCUMENTO FICTICIO DE DEMOSTRACIÓN. SIN VALIDEZ CLÍNICA."),
-    ]
-    flujo = b"BT /F1 11 Tf 56 780 Td 18 TL\n"
-    for tam, linea in lineas:
-        flujo += b"/F1 %d Tf (" % tam + texto(linea) + b") Tj T*\n"
-    flujo += b"ET"
-    objetos = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
-        b"<< /Length %d >>\nstream\n" % len(flujo) + flujo + b"\nendstream",
-    ]
-    pdf = b"%PDF-1.4\n"
-    posiciones = []
-    for n, objeto in enumerate(objetos, 1):
-        posiciones.append(len(pdf))
-        pdf += b"%d 0 obj\n" % n + objeto + b"\nendobj\n"
-    xref = len(pdf)
-    pdf += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objetos) + 1)
-    pdf += b"".join(b"%010d 00000 n \n" % p for p in posiciones)
-    pdf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objetos) + 1, xref)
-    return pdf
+    ])
